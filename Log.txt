@@ -1,3 +1,18 @@
 
 15/05/2026
 20:00 -> writing the rough structure
+
+17/05/2026
+8:00 - 9:00 -> creating the helper function from:
+1. finding frontier from OCC
+2. filtering the 5 frontiers: 2 closest to agent, 2 highest value, 1 farthest from other agent
+3. house generation
+4. picker
+# Frontier Input:
+we determined the frontier input as following based on the filter frontier function [direction x, direction y, position x, position y, value, distance to agent, closest distance to other agent]
+
+=======================
+REMINDER
+=======================
+## Reminder given when an AI reach their target and other havent, make sure other AI decission is invalid
+## Reminder when giving the observation to the AI we need to remove position x, position y. Those are just used so after the AI pick we can create the path to that place
