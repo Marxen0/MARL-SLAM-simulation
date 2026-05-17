@@ -35,14 +35,14 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
     """
     Filters and selects 5 specific frontiers for a given agent.
     
-    Returns a 5x5 numpy array. Each row contains:
-    [x_direction, y_direction, frontier_value, dist_to_agent, closest_dist_to_other_agent]
+    Returns a 5x7 numpy array. Each row contains:
+    [x_direction, y_direction, frontier_x, frontier_y, frontier_value, dist_to_agent, closest_dist_to_other_agent]
     
     If fewer than 5 frontiers exist, the array is padded with zeros.
     """
-    # 1. Handle edge case where no frontiers are found
+    # 1. Handle edge case where no frontiers are found (now returning 5x7)
     if len(frontiers) == 0:
-        return np.zeros((5, 5))
+        return np.zeros((5, 7))
     
     current_agent_pos = ag_pos[agent_idx]
     other_agents_pos = np.delete(ag_pos, agent_idx, axis=0) if len(ag_pos) > 1 else None
@@ -68,12 +68,10 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
             closest_other_dist = 999.0  # Default large distance if it's a solo agent
             
         # --- Metric C: Frontier Value (Count neighboring unexplored cells '0') ---
-        # Look at the 8-connected neighborhood
         value = 0
         for dx in [-1, 0, 1]:
             for dy in [-1, 0, 1]:
                 nx, ny = fx + dx, fy + dy
-                # Ensure the neighbor is within map boundaries
                 if 0 <= nx < width and 0 <= ny < height:
                     if map_occ[ny, nx] == 0:  # 0 is unexplored
                         value += 1
@@ -86,7 +84,7 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
             'original_idx': len(frontier_metrics)
         })
         
-    # Keep track of selected frontier indices to avoid picking the exact same one twice
+    # Keep track of selected frontier indices to avoid duplicates
     selected_indices = []
     
     def get_best_available(sorted_list, count):
@@ -104,7 +102,7 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
     sorted_by_closeness = sorted(frontier_metrics, key=lambda k: k['dist_to_agent'])
     closest_2 = get_best_available(sorted_by_closeness, 2)
     
-    # Criteria 2: 2 Highest value (most unexplored adjacent space)
+    # Criteria 2: 2 Highest value
     sorted_by_value = sorted(frontier_metrics, key=lambda k: k['value'], reverse=True)
     highest_2 = get_best_available(sorted_by_value, 2)
     
@@ -115,8 +113,8 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
     # Combine the chosen items
     chosen_frontiers = closest_2 + highest_2 + farthest_1
     
-    # 4. Format into a 5x5 array
-    output_array = np.zeros((5, 5))
+    # 4. Format into a 5x7 array
+    output_array = np.zeros((5, 7))
     
     for i, f_item in enumerate(chosen_frontiers):
         fx, fy = f_item['coord']
@@ -128,6 +126,8 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
         output_array[i] = [
             xdirection,
             ydirection,
+            fx,                   # Absolute frontier X coordinate
+            fy,                   # Absolute frontier Y coordinate
             f_item['value'],
             f_item['dist_to_agent'],
             f_item['closest_other_dist']

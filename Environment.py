@@ -3,6 +3,30 @@ import numpy as np
 from helpers.map_generator import create_house
 from helpers.frontier_finder import get_frontiers, filter_frontiers
 
+def agent_target(actions, agent_observations):
+    """
+    Maps each agent's discrete action to its chosen frontier profile.
+    
+    Args:
+        actions: List or 1D array of shape (agent_num,) containing 
+                 integer actions between 0 and 4.
+        agent_observations: Array-like object or NumPy array of shape 
+                            (agent_num, 5, 7) containing frontier choices.
+                            
+    Returns:
+        np.ndarray: Selected targets of shape (agent_num, 7)
+    """
+    # Convert inputs to reliable numpy arrays
+    obs_array = np.asarray(agent_observations)
+    actions_array = np.asarray(actions, dtype=int)
+    
+    # Generate an array of row indices: [0, 1, ..., agent_num - 1]
+    agent_indices = np.arange(len(actions_array))
+    
+    # Advanced slicing picks the specific action row for each agent row
+    selected_targets = obs_array[agent_indices, actions_array]
+    
+    return selected_targets
 class environment():
     def __init__(self, agent_num, agent_ray_count, world_widht, world_height):
         self.world_widht = world_widht
@@ -16,7 +40,7 @@ class environment():
         self.world = create_house(self.world_widht, self.world_height, seed)
 
         self.ag_pos = np.zeros((self.ag_num, 2))
-        self.ag_target = np.zeros((self.ag_num, 4))
+        self.ag_target = np.zeros((self.ag_num, 7))
         self.ag_occ = np.zeros((self.ag_num, self.world_widht, self.world_height))
         self.ag_path = {}
         self.time = 0
@@ -37,7 +61,8 @@ class environment():
         global_observation.append(global_map)
         return global_observation
     def step(self, actions):
-        self.ag_paths, ammount_run = create_path(self.ag_pos, self.ag_target, actions)
+        self.ag_target = agent_target(actions, self.ag_observations)
+        self.ag_paths, ammount_run = create_path(self.ag_pos, self.ag_target)
         done = False
         new_time = 0
         for _ in range(ammount_run):
@@ -52,5 +77,3 @@ class environment():
         for agent in range(self.ag_num):
             self.ag_observations.append(self.agent_observation(agent))
         return self.ag_observations, reward, done
-        
-    
