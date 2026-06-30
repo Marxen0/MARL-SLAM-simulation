@@ -2,36 +2,36 @@ import heapq
 import numpy as np
 from helpers.map_generator import visualize_occ
 from scipy import ndimage
-def dijkstra_path(world, start, goal):
+import heapq
+import numpy as np
+
+
+def dijkstra_all(start, occ):
     """
-    Find the shortest path between two points using Dijkstra.
+    Compute shortest paths from start to every reachable free cell.
 
     Args:
-        world (np.ndarray):
-            World map.
-            0 = free space
-            1 = wall
-
         start (tuple):
-            Starting coordinate (x, y).
+            (x, y) starting position.
 
-        goal (tuple):
-            Goal coordinate (x, y).
+        occ (np.ndarray):
+            Occupancy map:
+                -1 = unknown
+                 0 = free
+                 1 = wall
 
     Returns:
-        list[tuple]:
-            Path from start to goal.
+        tuple:
+            dist:
+                dict[(x,y)] -> shortest distance
 
-            Example:
-                [(1,1), (1,2), (2,2), (3,2)]
-
-            Returns an empty list if no path exists.
+            parent:
+                dict[(x,y)] -> previous node
     """
 
     start = tuple(map(int, start))
-    goal = tuple(map(int, goal))
 
-    width, height = world.shape
+    width, height = occ.shape
 
     directions = [
         (-1, 0),
@@ -41,15 +41,13 @@ def dijkstra_path(world, start, goal):
     ]
 
     pq = [(0, start)]
-    distances = {start: 0}
-    previous = {}
+
+    dist = {start: 0}
+    parent = {}
 
     while pq:
 
         current_dist, current = heapq.heappop(pq)
-
-        if current == goal:
-            break
 
         x, y = current
 
@@ -64,33 +62,76 @@ def dijkstra_path(world, start, goal):
             if ny < 0 or ny >= height:
                 continue
 
-            if world[nx, ny] != 0:
+            # Only walk on known free space
+            if occ[nx, ny] != 0:
                 continue
 
             neighbor = (nx, ny)
             new_dist = current_dist + 1
 
-            if neighbor not in distances:
-                distances[neighbor] = new_dist
-                previous[neighbor] = current
+            if neighbor not in dist:
+
+                dist[neighbor] = new_dist
+                parent[neighbor] = current
+
                 heapq.heappush(
                     pq,
                     (new_dist, neighbor)
                 )
 
-    if goal not in previous and goal != start:
+    return dist, parent
+
+
+def reconstruct_path(parent, start, goal):
+    """
+    Reconstruct a path using the parent dictionary.
+    """
+
+    if start == goal:
+        return []
+
+    if goal not in parent:
         return []
 
     path = []
+
     current = goal
 
     while current != start:
+
         path.append(current)
-        current = previous[current]
+        current = parent[current]
 
     path.reverse()
 
     return path
+
+
+def compute_frontier_value(fx, fy, occ):
+    """
+    Count unknown neighbors around a frontier.
+    """
+
+    value = 0
+
+    width, height = occ.shape
+
+    for dx in [-1, 0, 1]:
+        for dy in [-1, 0, 1]:
+
+            nx = fx + dx
+            ny = fy + dy
+
+            if nx < 0 or nx >= width:
+                continue
+
+            if ny < 0 or ny >= height:
+                continue
+
+            if occ[nx, ny] == -1:
+                value += 1
+
+    return value
 def get_frontiers(occ):
 
     frontiers = []
@@ -114,163 +155,168 @@ def get_frontiers(occ):
                 frontiers.append((x, y))
 
     return np.array(frontiers)
-def compute_cached_paths(
-    ag_occ,
-    current_agent_pos,
-    chosen_frontiers
-):
+
+def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
     """
-    Compute paths for all selected frontiers.
-
-    Args:
-        world (np.ndarray):
-            Ground truth map.
-
-        current_agent_pos (tuple):
-            Current agent position.
-
-        chosen_frontiers (list):
-            Selected frontier metric dictionaries.
+    Select 5 frontier choices and compute cached paths.
 
     Returns:
-        list[list[tuple]]:
-            Cached paths.
+        observation:
+            shape (5, 7)
 
-            The path at index i corresponds to
-            chosen_frontiers[i].
+        cached_paths:
+            list of length 5
     """
 
+    if len(frontiers) == 0:
+        return np.zeros((5, 7)), [[] for _ in range(5)]
+
+    current_agent_pos = tuple(map(int, ag_pos[agent_idx]))
+
+    other_agents_pos = np.delete(
+        ag_pos,
+        agent_idx,
+        axis=0
+    )
+
+    map_occ = ag_occ
+
+    # ==================================================
+    # STEP 1:
+    # Run Dijkstra ONCE
+    # ==================================================
+
+    dist, parent = dijkstra_all(
+        current_agent_pos,
+        map_occ
+    )
+
+    # ==================================================
+    # STEP 2:
+    # Keep only reachable frontiers
+    # ==================================================
+
+    reachable_frontiers = []
+
+    for frontier in frontiers:
+
+        fx, fy = map(int, frontier)
+
+        if (fx, fy) in dist:
+            reachable_frontiers.append((fx, fy))
+
+    if len(reachable_frontiers) == 0:
+
+        return np.zeros((5, 7)), [[] for _ in range(5)]
+
+    # ==================================================
+    # STEP 3:
+    # Compute metrics
+    # ==================================================
+
+    frontier_metrics = []
+
+    for fx, fy in reachable_frontiers:
+
+        dist_to_agent = dist[(fx, fy)]
+
+        if len(other_agents_pos) > 0:
+
+            dists_to_others = np.linalg.norm(
+                other_agents_pos - [fx, fy],
+                axis=1
+            )
+
+            closest_other_dist = np.min(
+                dists_to_others
+            )
+
+        else:
+
+            closest_other_dist = 999
+
+        value = compute_frontier_value(
+            fx,
+            fy,
+            map_occ
+        )
+
+        frontier_metrics.append({
+            "coord": (fx, fy),
+            "value": value,
+            "dist_to_agent": dist_to_agent,
+            "closest_other_dist": closest_other_dist
+        })
+
+    # ==================================================
+    # STEP 4:
+    # Select frontiers
+    # (duplicates allowed)
+    # ==================================================
+
+    closest_2 = sorted(
+        frontier_metrics,
+        key=lambda x: x["dist_to_agent"]
+    )[:2]
+
+    highest_2 = sorted(
+        frontier_metrics,
+        key=lambda x: x["value"],
+        reverse=True
+    )[:2]
+
+    farthest_1 = sorted(
+        frontier_metrics,
+        key=lambda x: x["closest_other_dist"],
+        reverse=True
+    )[:1]
+
+    chosen_frontiers = (
+        closest_2 +
+        highest_2 +
+        farthest_1
+    )
+
+    # ==================================================
+    # STEP 5:
+    # Build observation + cached paths
+    # ==================================================
+
+    observation = np.zeros((5, 7))
+
     cached_paths = []
-    for frontier in chosen_frontiers:
+
+    for i, frontier in enumerate(chosen_frontiers):
 
         fx, fy = frontier["coord"]
-        path = dijkstra_path(
-            ag_occ,
+
+        x_direction = fx - current_agent_pos[0]
+        y_direction = fy - current_agent_pos[1]
+
+        observation[i] = [
+            x_direction,
+            y_direction,
+            fx,
+            fy,
+            frontier["value"],
+            frontier["dist_to_agent"],
+            frontier["closest_other_dist"]
+        ]
+
+        path = reconstruct_path(
+            parent,
             current_agent_pos,
             (fx, fy)
         )
-        if (path == []): 
-            print("EMPTY PATH : ", current_agent_pos, "to", (fx,fy), "filled with ", ag_occ[fx][fy])
-            visualize_occ(ag_occ)
+
         cached_paths.append(path)
+        if (path == []):
+            print("EMPTY PATH: ", current_agent_pos, "to" , (fx,fy), "with value", ag_occ[fx][fy])
+            visualize_occ(ag_occ)
 
+    # Pad to exactly 5 actions
     while len(cached_paths) < 5:
+
         cached_paths.append([])
-    
-    return cached_paths
 
-def get_best_available(sorted_list, count):
-    added = []
-    selected_indices = []
-    for item in sorted_list:
-        if item['original_idx'] not in selected_indices:
-            selected_indices.append(item['original_idx'])
-            added.append(item)
-            if len(added) == count:
-                break
-    return added
-def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
-    """
-    Filters and selects 5 specific frontiers for a given agent.
-    
-    Returns a 5x7 numpy array. Each row contains:
-    [x_direction, y_direction, frontier_x, frontier_y, frontier_value, dist_to_agent, closest_dist_to_other_agent]
-    
-    If fewer than 5 frontiers exist, the array is padded with zeros.
-    """
-    # 1. Handle edge case where no frontiers are found (now returning 5x7)
-    if len(frontiers) == 0:
-        return np.zeros((5, 7)), [[] for _ in range(5)]
-    
-    current_agent_pos = ag_pos[agent_idx]
-    other_agents_pos = np.delete(ag_pos, agent_idx, axis=0) if len(ag_pos) > 1 else None
-    
-    # Extract map limits for bounds checking
-    height, width = ag_occ.shape
-    
-    # 2. Compute metrics for ALL found frontiers
-    frontier_metrics = []
-    
-    for f in frontiers:
-        fx, fy = f[0], f[1]
-        
-        # --- Metric A: Distance to current agent ---
-        dist_to_agent = np.linalg.norm(current_agent_pos - [fx, fy])
-        
-        # --- Metric B: Closest distance to any OTHER agent ---
-        if other_agents_pos is not None and len(other_agents_pos) > 0:
-            dists_to_others = np.linalg.norm(other_agents_pos - [fx, fy], axis=1)
-            closest_other_dist = np.min(dists_to_others)
-        else:
-            closest_other_dist = 999.0  # Default large distance if it's a solo agent
-            
-        # --- Metric C: Frontier Value (Count neighboring unexplored cells '0') ---
-        value = 0
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                nx, ny = fx + dx, fy + dy
-                if 0 <= nx < width and 0 <= ny < height:
-                    if ag_occ[ny, nx] == 0:  # 0 is unexplored
-                        value += 1
-                        
-        frontier_metrics.append({
-            'coord': [fx, fy],
-            'value': value,
-            'dist_to_agent': dist_to_agent,
-            'closest_other_dist': closest_other_dist,
-            'original_idx': len(frontier_metrics)
-        })
-    # Keep track of selected frontier indices to avoid duplicates 
-    # 3. Apply selection criteria
-    # Criteria 1: 2 Closest to the current agent
-    sorted_by_closeness = sorted(
-    frontier_metrics,
-    key=lambda k: k['dist_to_agent']
-    )
-    closest_2 = sorted_by_closeness[:2]
-
-    # Criteria 2: 2 Highest value
-    sorted_by_value = sorted(
-        frontier_metrics,
-        key=lambda k: k['value'],
-        reverse=True
-    )
-    highest_2 = sorted_by_value[:2]
-
-    # Criteria 3: 1 Farthest from any other agent
-    sorted_by_isolation = sorted(
-        frontier_metrics,
-        key=lambda k: k['closest_other_dist'],
-        reverse=True
-    )
-    farthest_1 = sorted_by_isolation[:1]
-    
-    # Combine the chosen items
-    chosen_frontiers = closest_2 + highest_2 + farthest_1
-    cached_paths = compute_cached_paths(
-        ag_occ,
-        current_agent_pos,
-        chosen_frontiers
-    )
-    
-    # 4. Format into a 5x7 array
-    output_array = np.zeros((5, 7))
-    
-    for i, f_item in enumerate(chosen_frontiers):
-        fx, fy = f_item['coord']
-        
-        # Directions calculated relative to current agent position
-        xdirection = fx - current_agent_pos[0]
-        ydirection = fy - current_agent_pos[1]
-        
-        output_array[i] = [
-            xdirection,
-            ydirection,
-            fx,                   # Absolute frontier X coordinate
-            fy,                   # Absolute frontier Y coordinate
-            f_item['value'],
-            f_item['dist_to_agent'],
-            f_item['closest_other_dist']
-        ]
-        
-    return output_array, cached_paths
+    return observation, cached_paths

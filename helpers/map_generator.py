@@ -16,7 +16,7 @@ def create_house(width, height, seed=None):
         random.seed(seed)
 
     # Initialize everything as walls (-1)
-    world = np.full((width, height), -1)
+    world = np.ones((width, height), dtype=int)
 
     MIN_ROOM = 6
     MAX_DEPTH = 4
@@ -86,7 +86,7 @@ def create_house(width, height, seed=None):
                 # Leaf room: Carve out floor paths (1 = free space)
                 for x in range(self.x + 1, self.x + self.w - 1):
                     for y in range(self.y + 1, self.y + self.h - 1):
-                        world[x, y] = 1
+                        world[x, y] = 0
 
         def create_doors(self):
             if not self.left or not self.right:
@@ -101,11 +101,11 @@ def create_house(width, height, seed=None):
                     x = self.split_pos
 
                     # Open doors in the walls (1 = free space)
-                    world[x, y] = 1
-                    world[x - 1, y] = 1
-                    world[x - 2, y] = 1
-                    world[x + 1, y] = 1
-                    world[x + 2, y] = 1
+                    world[x, y] = 0
+                    world[x - 1, y] = 0
+                    world[x - 2, y] = 0
+                    world[x + 1, y] = 0
+                    world[x + 2, y] = 0
             else:
                 min_x = self.x + DOOR_MARGIN
                 max_x = self.x + self.w - DOOR_MARGIN - 1
@@ -115,11 +115,11 @@ def create_house(width, height, seed=None):
                     y = self.split_pos
 
                     # Open doors in the walls (1 = free space)
-                    world[x, y] = 1
-                    world[x, y - 1] = 1
-                    world[x, y - 2] = 1
-                    world[x, y + 1] = 1
-                    world[x, y + 2] = 1
+                    world[x, y] = 0
+                    world[x, y - 1] = 0
+                    world[x, y - 2] = 0
+                    world[x, y + 1] = 0
+                    world[x, y + 2] = 0
 
             self.left.create_doors()
             self.right.create_doors()
@@ -131,9 +131,244 @@ def create_house(width, height, seed=None):
     root.create_doors()
 
     # Explicitly enforce outer perimeter walls (-1 = obstacle)
-    world[0, :] = -1
-    world[-1, :] = -1
-    world[:, 0] = -1
-    world[:, -1] = -1
+    world[0, :] = 1
+    world[-1, :] = 1
+    world[:, 0] = 1
+    world[:, -1] = 1
 
     return world
+import pygame
+import numpy as np
+
+
+class OccupancyViewer:
+    """
+    Real-time occupancy grid visualizer.
+
+    Cell encoding:
+        -1 = unknown (gray)
+         0 = free (white)
+         1 = wall (black)
+    """
+
+    def __init__(self, width, height, cell_size=20):
+
+        pygame.init()
+
+        self.cell_size = cell_size
+        self.width = width
+        self.height = height
+
+        self.screen = pygame.display.set_mode(
+            (width * cell_size, height * cell_size)
+        )
+
+        pygame.display.set_caption("Occupancy Grid")
+
+        self.colors = {
+            -1: (128, 128, 128),   # Unknown
+             0: (255, 255, 255),  # Free
+             1: (0, 0, 0)         # Wall
+        }
+
+    def render(
+        self,
+        occ,
+        agent_positions=None,
+        frontiers=None
+    ):
+        """
+        Render an occupancy grid.
+
+        Args:
+            occ (np.ndarray):
+                Shape (width, height)
+
+            agent_positions (np.ndarray, optional):
+                Shape (agent_num, 2)
+
+            frontiers (np.ndarray, optional):
+                Shape (N, 2) or (N, 7).
+
+                If shape is (N, 7), columns 2 and 3 are assumed
+                to be frontier_x and frontier_y.
+        """
+
+        # Keep window responsive
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return False
+
+        self.screen.fill((255, 255, 255))
+
+        width, height = occ.shape
+
+        # Draw occupancy grid
+        for x in range(width):
+            for y in range(height):
+
+                value = int(occ[x, y])
+
+                color = self.colors.get(
+                    value,
+                    (255, 0, 255)  # Invalid values
+                )
+
+                pygame.draw.rect(
+                    self.screen,
+                    color,
+                    (
+                        x * self.cell_size,
+                        y * self.cell_size,
+                        self.cell_size,
+                        self.cell_size
+                    )
+                )
+
+                pygame.draw.rect(
+                    self.screen,
+                    (200, 200, 200),
+                    (
+                        x * self.cell_size,
+                        y * self.cell_size,
+                        self.cell_size,
+                        self.cell_size
+                    ),
+                    1
+                )
+
+        # Draw frontiers (GREEN)
+       # Draw frontiers (GREEN)
+        if frontiers is not None:
+
+            frontiers = np.asarray(frontiers)
+
+            for frontier in frontiers:
+
+                # Observation format:
+                # [dx, dy, fx, fy, value, dist, closest_other_dist]
+                if frontier.shape[0] == 7:
+
+                    fx = int(frontier[2])
+                    fy = int(frontier[3])
+
+                # Simple frontier format:
+                # [x, y]
+                elif frontier.shape[0] == 2:
+
+                    fx = int(frontier[0])
+                    fy = int(frontier[1])
+
+                else:
+
+                    print(
+                        f"Warning: Unsupported frontier format {frontier.shape}"
+                    )
+                    continue
+
+                center = (
+                    int(fx * self.cell_size + self.cell_size / 2),
+                    int(fy * self.cell_size + self.cell_size / 2)
+                )
+
+                pygame.draw.circle(
+                    self.screen,
+                    (0, 255, 0),
+                    center,
+                    self.cell_size // 4
+                )
+
+        # Draw agents (RED)
+        if agent_positions is not None:
+
+            for x, y in agent_positions:
+
+                center = (
+                    int(x * self.cell_size + self.cell_size / 2),
+                    int(y * self.cell_size + self.cell_size / 2)
+                )
+
+                pygame.draw.circle(
+                    self.screen,
+                    (255, 0, 0),
+                    center,
+                    self.cell_size // 3
+                )
+
+        pygame.display.flip()
+
+        return True
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+
+
+def visualize_occ(occ):
+    """
+    Visualize an occupancy grid with coordinates and cell values.
+
+    Occupancy encoding:
+        -1 = unknown (gray)
+         0 = free (white)
+         1 = wall (black)
+
+    Args:
+        occ (np.ndarray):
+            2D occupancy grid.
+    """
+
+    height, width = occ.shape
+
+    # Convert values to color indices
+    # -1 -> 0 (gray)
+    #  0 -> 1 (white)
+    #  1 -> 2 (black)
+    display_grid = occ + 1
+
+    cmap = ListedColormap([
+        "gray",   # unknown (-1)
+        "white",  # free (0)
+        "black"   # wall (1)
+    ])
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    ax.imshow(
+        display_grid,
+        cmap=cmap,
+        origin="lower",
+        vmin=0,
+        vmax=2
+    )
+
+    # Show coordinates
+    ax.set_xticks(np.arange(width))
+    ax.set_yticks(np.arange(height))
+
+    # Draw grid lines
+    ax.set_xticks(np.arange(-0.5, width, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, height, 1), minor=True)
+
+    ax.grid(which="minor")
+
+    # Print the actual cell value inside each square
+    for x in range(width):
+        for y in range(height):
+
+            value = int(occ[y, x])
+
+            # White text on black walls
+            text_color = "white" if value == 1 else "black"
+
+            ax.text(
+                x,
+                y,
+                str(value),
+                ha="center",
+                va="center",
+                color=text_color,
+                fontsize=8
+            )
+
+    ax.set_title("Occupancy Grid Debug View")
+    plt.show()
