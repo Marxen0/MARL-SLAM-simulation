@@ -108,7 +108,7 @@ def agent_target(actions, agent_observations):
         actions: List or 1D array of shape (agent_num,) containing 
                  integer actions between 0 and 4.
         agent_observations: Array-like object or NumPy array of shape 
-                            (agent_num, 5, 7) containing frontier choices.
+                            (agent_num, 5,   containing frontier choices.
                             
     Returns:
         np.ndarray: Selected targets of shape (agent_num, 7)

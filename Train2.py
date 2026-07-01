@@ -67,12 +67,12 @@ def train():
     AGENTS = 3
     RAYS = 16
     W, H = 50, 50
-    EPISODES = 100
+    EPISODES = 500
     GAMMA = 0.99
     RENDER = False
 
     env = Environment.environment(AGENTS, RAYS, W, H)
-    os.makedirs("models2", exist_ok=True)
+    os.makedirs("models3", exist_ok=True)
     actor = Actor()
     critic = Critic(state_dim=W * H + AGENTS * 2)
 
@@ -143,7 +143,7 @@ def train():
                     obs[0],
                 )
                 time.sleep(1)
-            reward = np.sum(rewards)
+            reward = rewards[0]
             ep_reward += reward
 
             next_global_state = torch.FloatTensor(get_global_state(env)).unsqueeze(0)
@@ -209,7 +209,7 @@ def train():
         if ep%10 == 0:
             print(f"Episode {ep} | Reward: {ep_reward} | Steps: {env.time}")
 
-        with open("training_log4.csv", "a", newline="") as f:
+        with open("training_log5.csv", "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([ep, ep_reward, env.time])
         if ep % 100 == 0:
@@ -219,12 +219,12 @@ def train():
                 "critic_state_dict": critic.state_dict(),
                 "actor_optimizer_state_dict": actor_opt.state_dict(),
                 "critic_optimizer_state_dict": critic_opt.state_dict(),
-            }, f"models2/a2c_checkpoint_{ep}.pth")
+            }, f"models3/a2c_checkpoint_{ep}.pth")
 
-            print(f"Saved checkpoint: models2/a2c_checkpoint_{ep}.pth")
+            print(f"Saved checkpoint: models3/a2c_checkpoint_{ep}.pth")
 
-    torch.save(actor.state_dict(), "models2/actor_final.pth")
-    torch.save(critic.state_dict(), "models2/critic_final.pth")
+    torch.save(actor.state_dict(), "models3/actor_final.pth")
+    torch.save(critic.state_dict(), "models3/critic_final.pth")
 
     print("Training finished. Final models saved.")
 

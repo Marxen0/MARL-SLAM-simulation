@@ -40,7 +40,7 @@ def test():
     actor = Actor()
 
     actor.load_state_dict(
-        torch.load("models2/actor_final.pth", map_location="cpu")
+        torch.load("models3/actor_final.pth", map_location="cpu")
     )
 
     actor.eval()
@@ -82,9 +82,9 @@ def test():
         total_reward += np.sum(rewards)
 
         viewer.render(
-            env.ag_occ[0],
+            env.global_map,
             env.ag_pos,
-            obs[0],
+        #    obs[0],
         )
 
         time.sleep(0.5)
