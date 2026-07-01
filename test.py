@@ -11,7 +11,7 @@ import Environment
 # ACTOR
 # =========================
 class Actor(nn.Module):
-    def __init__(self, obs_shape=(5, 7), action_dim=5):
+    def __init__(self, obs_shape=(5, 6), action_dim=5):
         super().__init__()
 
         input_dim = obs_shape[0] * obs_shape[1]
@@ -40,7 +40,7 @@ def test():
     actor = Actor()
 
     actor.load_state_dict(
-        torch.load("models/actor_final.pth", map_location="cpu")
+        torch.load("models2/actor_final.pth", map_location="cpu")
     )
 
     actor.eval()

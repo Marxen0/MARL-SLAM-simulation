@@ -139,7 +139,7 @@ class environment():
         
         start_pos = get_start_positions(self.world, self.ag_num)
         self.ag_pos = start_pos
-        self.ag_target = np.zeros((self.ag_num, 7))
+        self.ag_target = np.zeros((self.ag_num, 6))
         self.ag_occ = np.full((self.ag_num, self.world_widht, self.world_height), -1)
         # Inside __init__ AND reset
         self.ag_paths = [[] for _ in range(self.ag_num)]

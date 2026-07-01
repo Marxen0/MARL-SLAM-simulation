@@ -248,7 +248,7 @@ class OccupancyViewer:
 
                 # Observation format:
                 # [dx, dy, fx, fy, value, dist, closest_other_dist]
-                if frontier.shape[0] == 7:
+                if frontier.shape[0] == 6:
 
                     fx = int(frontier[2])
                     fy = int(frontier[3])

@@ -169,7 +169,7 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
     """
 
     if len(frontiers) == 0:
-        return np.zeros((5, 7)), [[] for _ in range(5)]
+        return np.zeros((5, 6)), [[] for _ in range(5)]
 
     current_agent_pos = tuple(map(int, ag_pos[agent_idx]))
 
@@ -198,16 +198,28 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
 
     reachable_frontiers = []
 
+    # Convert existing targets to a set for fast lookup
+    occupied_targets = {
+        tuple(target)
+        for target in ag_target
+        if target is not None and len(target) > 0
+    }
+
     for frontier in frontiers:
 
         fx, fy = map(int, frontier)
 
+        # Skip if another agent already targets this frontier
+        if (fx, fy) in occupied_targets:
+            continue
+
+        # Only keep reachable frontiers
         if (fx, fy) in dist:
             reachable_frontiers.append((fx, fy))
 
     if len(reachable_frontiers) == 0:
 
-        return np.zeros((5, 7)), [[] for _ in range(5)]
+        return np.zeros((5, 6)), [[] for _ in range(5)]
 
     # ==================================================
     # STEP 3:
@@ -220,9 +232,11 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
 
         dist_to_agent = dist[(fx, fy)]
 
+        # ------------------------------------------
         # Distance to OTHER agents' targets
+        # ------------------------------------------
         other_targets = [
-            [target[2], target[3]]   # Extract (pos_x, pos_y)
+            [target[2], target[3]]
             for i, target in enumerate(ag_target)
             if i != agent_idx and target is not None
         ]
@@ -236,11 +250,37 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
                 axis=1
             )
 
-            closest_other_dist = np.min(dists_to_targets)
+            closest_other_target_dist = np.min(dists_to_targets)
 
         else:
 
-            closest_other_dist = 999
+            closest_other_target_dist = 999
+
+
+        # ------------------------------------------
+        # Distance to OTHER agents' current positions
+        # ------------------------------------------
+        other_positions = [
+            pos
+            for i, pos in enumerate(ag_pos)
+            if i != agent_idx
+        ]
+
+        if len(other_positions) > 0:
+
+            other_positions = np.array(other_positions)
+
+            dists_to_positions = np.linalg.norm(
+                other_positions - [fx, fy],
+                axis=1
+            )
+
+            closest_other_pos_dist = np.min(dists_to_positions)
+
+        else:
+
+            closest_other_pos_dist = 999
+
 
         value = compute_frontier_value(
             fx,
@@ -252,8 +292,10 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
             "coord": (fx, fy),
             "value": value,
             "dist_to_agent": dist_to_agent,
-            "closest_other_dist": closest_other_dist
+            "closest_other_pos_dist": closest_other_pos_dist,
+            "closest_other_target_dist": closest_other_target_dist
         })
+
 
     # ==================================================
     # STEP 4:
@@ -272,9 +314,10 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
         reverse=True
     )[:2]
 
+    # Frontier farthest from other agents
     farthest_1 = sorted(
         frontier_metrics,
-        key=lambda x: x["closest_other_dist"],
+        key=lambda x: x["closest_other_pos_dist"],
         reverse=True
     )[:1]
 
@@ -284,12 +327,17 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
         farthest_1
     )
 
+
     # ==================================================
     # STEP 5:
     # Build observation + cached paths
     # ==================================================
 
-    observation = np.zeros((5, 7))
+    # Features:
+    # [dir_x, dir_y, dist_to_other_agents,
+    #  value, dist_to_other_targets, dist_to_agent]
+
+    observation = np.zeros((5, 6))
 
     cached_paths = []
 
@@ -303,11 +351,10 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
         observation[i] = [
             x_direction,
             y_direction,
-            fx,
-            fy,
+            frontier["closest_other_pos_dist"],
             frontier["value"],
-            frontier["dist_to_agent"],
-            frontier["closest_other_dist"]
+            frontier["closest_other_target_dist"],
+            frontier["dist_to_agent"]
         ]
 
         path = reconstruct_path(
@@ -317,13 +364,22 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
         )
 
         cached_paths.append(path)
-        if (path == []):
-            print("EMPTY PATH: ", current_agent_pos, "to" , (fx,fy), "with value", ag_occ[fx][fy])
+
+        if path == []:
+            print(
+                "EMPTY PATH:",
+                current_agent_pos,
+                "to",
+                (fx, fy),
+                "with value",
+                ag_occ[fx][fy]
+            )
             visualize_occ(ag_occ)
+
 
     # Pad to exactly 5 actions
     while len(cached_paths) < 5:
-
         cached_paths.append([])
+
 
     return observation, cached_paths

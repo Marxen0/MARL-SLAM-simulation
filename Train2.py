@@ -12,7 +12,7 @@ import os
 # ACTOR (decentralized)
 # =========================
 class Actor(nn.Module):
-    def __init__(self, obs_shape=(5, 7), action_dim=5):
+    def __init__(self, obs_shape=(5, 6), action_dim=5):
         super().__init__()
 
         input_dim = obs_shape[0] * obs_shape[1]
@@ -67,7 +67,7 @@ def train():
     AGENTS = 3
     RAYS = 16
     W, H = 50, 50
-    EPISODES = 500
+    EPISODES = 100
     GAMMA = 0.99
     RENDER = False
 
@@ -209,7 +209,7 @@ def train():
         if ep%10 == 0:
             print(f"Episode {ep} | Reward: {ep_reward} | Steps: {env.time}")
 
-        with open("training_log2.csv", "a", newline="") as f:
+        with open("training_log4.csv", "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([ep, ep_reward, env.time])
         if ep % 100 == 0:
@@ -219,12 +219,12 @@ def train():
                 "critic_state_dict": critic.state_dict(),
                 "actor_optimizer_state_dict": actor_opt.state_dict(),
                 "critic_optimizer_state_dict": critic_opt.state_dict(),
-            }, f"models/a2c_checkpoint_{ep}.pth")
+            }, f"models2/a2c_checkpoint_{ep}.pth")
 
-            print(f"Saved checkpoint: models/a2c_checkpoint_{ep}.pth")
+            print(f"Saved checkpoint: models2/a2c_checkpoint_{ep}.pth")
 
-    torch.save(actor.state_dict(), "models/actor_final.pth")
-    torch.save(critic.state_dict(), "models/critic_final.pth")
+    torch.save(actor.state_dict(), "models2/actor_final.pth")
+    torch.save(critic.state_dict(), "models2/critic_final.pth")
 
     print("Training finished. Final models saved.")
 
