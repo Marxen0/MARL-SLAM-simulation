@@ -156,7 +156,7 @@ def get_frontiers(occ):
 
     return np.array(frontiers)
 
-def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
+def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
     """
     Select 5 frontier choices and compute cached paths.
 
@@ -220,16 +220,23 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ):
 
         dist_to_agent = dist[(fx, fy)]
 
-        if len(other_agents_pos) > 0:
+        # Distance to OTHER agents' targets
+        other_targets = [
+            [target[2], target[3]]   # Extract (pos_x, pos_y)
+            for i, target in enumerate(ag_target)
+            if i != agent_idx and target is not None
+        ]
 
-            dists_to_others = np.linalg.norm(
-                other_agents_pos - [fx, fy],
+        if len(other_targets) > 0:
+
+            other_targets = np.array(other_targets)
+
+            dists_to_targets = np.linalg.norm(
+                other_targets - [fx, fy],
                 axis=1
             )
 
-            closest_other_dist = np.min(
-                dists_to_others
-            )
+            closest_other_dist = np.min(dists_to_targets)
 
         else:
 

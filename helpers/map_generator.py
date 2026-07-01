@@ -282,16 +282,17 @@ class OccupancyViewer:
         # Draw agents (RED)
         if agent_positions is not None:
 
-            for x, y in agent_positions:
-
+            for i in range(len(agent_positions)):
+                x,y = agent_positions[i]
+                color = (255,0,0)
+                if i == 0: color = (0,0,255)
                 center = (
                     int(x * self.cell_size + self.cell_size / 2),
                     int(y * self.cell_size + self.cell_size / 2)
                 )
-
                 pygame.draw.circle(
                     self.screen,
-                    (255, 0, 0),
+                    color,
                     center,
                     self.cell_size // 3
                 )

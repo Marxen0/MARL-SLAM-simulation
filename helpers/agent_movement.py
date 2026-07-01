@@ -24,13 +24,14 @@ def walk_agent(world, ag_occ, ray_count, current_step_paths):
     
     # Jarak maksimum jangkauan sensor agent (dalam pixel/grid)
     max_sensor_range = 15
-
+    for x in range(len(ag_occ)):
+        for pos in current_step_paths:
+            updated_ag_occ[x][pos[0]][pos[1]] = 0
     for agent_idx, next_pos in enumerate(current_step_paths):
 
         # ----------------------------------
         # Update position
         # ----------------------------------
-
         x = int(np.clip(
             next_pos[0],
             0,

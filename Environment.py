@@ -4,33 +4,82 @@ from helpers.map_generator import create_house, visualize_occ
 from helpers.frontier_finder import get_frontiers, filter_frontiers
 # Tambahkan import ini di bagian atas file environment Anda
 from helpers.agent_movement import walk_agent, check_done, check_agent_movement
-def get_start_position(world):
+from collections import deque
+
+
+def get_start_positions(world, num_agents):
     """
-    Find a free cell near the outer border.
+    Find num_agents nearby free starting positions.
 
     Args:
         world (np.ndarray):
             0 = free
             1 = wall
+        num_agents (int):
+            Number of agents.
 
     Returns:
-        tuple[int, int]:
-            (x, y) coordinate of a free cell.
+        list[tuple[int, int]]:
+            List of (x, y) starting positions.
     """
 
     width, height = world.shape
 
-    # Check the cells just inside the border
+    # Find first valid border position
+    start = None
+
     for x in range(2, width - 2):
         for y in range(2, height - 2):
 
-            # Only consider cells one step from the border
             if x == 2 or x == width - 3 or y == 2 or y == height - 3:
 
                 if world[x, y] == 0:
-                    return (x, y)
+                    start = (x, y)
+                    break
 
-    raise ValueError("No free starting position found.")
+        if start is not None:
+            break
+
+    if start is None:
+        raise ValueError("No free starting position found.")
+
+    # BFS to collect nearby positions
+    queue = deque([start])
+    visited = {start}
+    positions = []
+
+    directions = [
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1)
+    ]
+
+    while queue and len(positions) < num_agents:
+
+        x, y = queue.popleft()
+        positions.append((x, y))
+
+        for dx, dy in directions:
+
+            nx, ny = x + dx, y + dy
+
+            if (
+                0 <= nx < width
+                and 0 <= ny < height
+                and world[nx, ny] == 0
+                and (nx, ny) not in visited
+            ):
+                visited.add((nx, ny))
+                queue.append((nx, ny))
+
+    if len(positions) < num_agents:
+        raise ValueError(
+            f"Could only find {len(positions)} connected free cells, "
+            f"but {num_agents} agents were requested."
+        )
+
+    return positions
 def combine_occ(ag_occ):
     """
     Combines individual occupancy grids from multiple agents into a single global map.
@@ -88,11 +137,8 @@ class environment():
         self.world = create_house(self.world_widht, self.world_height, seed)
 
         
-        start_pos = get_start_position(self.world)
-        self.ag_pos = np.tile(
-            start_pos,
-            (self.ag_num, 1)
-        )
+        start_pos = get_start_positions(self.world, self.ag_num)
+        self.ag_pos = start_pos
         self.ag_target = np.zeros((self.ag_num, 7))
         self.ag_occ = np.full((self.ag_num, self.world_widht, self.world_height), -1)
         # Inside __init__ AND reset
@@ -102,7 +148,7 @@ class environment():
         self.cached_paths = {}
         self.ag_observations = []
         self.global_map = np.full((self.world_widht, self.world_height), -1)
-        self.ag_occ, self.ag_pos = walk_agent(self.world, self.ag_occ, self.ag_ray_count, [start_pos for _ in range(self.ag_num)])
+        self.ag_occ, self.ag_pos = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
         for agent in range(self.ag_num):
             obs, ag_cached_paht = self.agent_observation(agent)
             self.ag_observations.append(obs)
@@ -111,7 +157,7 @@ class environment():
         return self.ag_observations
     def agent_observation(self, agent):
         agent_frontiers = get_frontiers(self.ag_occ[agent])
-        agent_frontiers_choice, ag_cached_path = filter_frontiers(agent, agent_frontiers, self.ag_pos, self.ag_occ[agent])
+        agent_frontiers_choice, ag_cached_path = filter_frontiers(agent, agent_frontiers, self.ag_pos, self.ag_occ[agent], self.ag_target)
         observation = agent_frontiers_choice
         return observation, ag_cached_path
     def critic_observation(self):

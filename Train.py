@@ -109,7 +109,7 @@ def train_marl_async():
 
         with open("training_log.csv", "a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([episode, rewards, env.time])
+            writer.writerow([episode, episode_reward, env.time])
         # Logging metrics at the end of every episode
         if episode % 10 == 0:
             print(f"Episode {episode:03d} | Total Step Penalty (Reward): {episode_reward:.1f} | Env Simulation Clock: {env.time} steps")
