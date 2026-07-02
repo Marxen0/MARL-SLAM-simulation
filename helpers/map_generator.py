@@ -168,7 +168,8 @@ class OccupancyViewer:
         self.colors = {
             -1: (128, 128, 128),   # Unknown
              0: (255, 255, 255),  # Free
-             1: (0, 0, 0)         # Wall
+             1: (0, 0, 0),         # Wall
+             2: (255,255,0)
         }
 
     def render(

@@ -21,12 +21,13 @@ def walk_agent(world, ag_occ, ray_count, current_step_paths):
     # Inisialisasi array untuk posisi baru dan peta okupansi baru langkah ini
     updated_ag_pos = np.zeros((agent_num, 2), dtype=int)
     updated_ag_occ = ag_occ.copy()
+    walk_penalty = [0 for x in range(agent_num)]
     
     # Jarak maksimum jangkauan sensor agent (dalam pixel/grid)
     max_sensor_range = 15
     for x in range(len(ag_occ)):
         for pos in current_step_paths:
-            updated_ag_occ[x][pos[0]][pos[1]] = 0
+            updated_ag_occ[x][pos[0]][pos[1]] = 2
     for agent_idx, next_pos in enumerate(current_step_paths):
 
         # ----------------------------------
@@ -49,7 +50,7 @@ def walk_agent(world, ag_occ, ray_count, current_step_paths):
             continue
 
         updated_ag_pos[agent_idx] = [x, y]
-
+        if ag_occ[agent_idx][x][y] == 2: walk_penalty[agent_idx] = 0
         # The agent always knows its own position is free
         updated_ag_occ[agent_idx, x, y] = 0
 
@@ -86,17 +87,18 @@ def walk_agent(world, ag_occ, ray_count, current_step_paths):
                     break
 
                 # Store the ACTUAL occupancy value
-                updated_ag_occ[
-                    agent_idx,
-                    ray_x,
-                    ray_y
-                ] = world[ray_x, ray_y]
+                if ag_occ[agent_idx, ray_x, ray_y] == 2: pass
+                else:
+                    updated_ag_occ[
+                        agent_idx,
+                        ray_x,
+                        ray_y
+                    ] = world[ray_x, ray_y]
 
                 # Stop if a wall is hit
                 if world[ray_x, ray_y] == 1:
                     break
-
-    return updated_ag_occ, updated_ag_pos
+    return updated_ag_occ, updated_ag_pos, walk_penalty
 
 
 def check_done(global_map):
@@ -173,3 +175,24 @@ def check_agent_movement(ag_pos):
 
     previous_ag_pos = ag_pos.copy()
     return problem
+def proximity_penalty(ag_pos):
+    rewards = []
+
+    for i, pos_i in enumerate(ag_pos):
+
+        min_dist = float('inf')
+
+        for j, pos_j in enumerate(ag_pos):
+
+            if i == j:
+                continue
+
+            dist = np.linalg.norm(np.array(pos_i) - np.array(pos_j))
+
+            min_dist = min(min_dist, dist)
+
+        penalty = -1 / ((min_dist + 1) ** 2)
+
+        rewards.append(penalty*100)
+
+    return rewards

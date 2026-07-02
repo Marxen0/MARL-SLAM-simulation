@@ -8,7 +8,7 @@ rewards = []
 steps = []
 
 # Read CSV
-with open("training_log5.csv", "r") as f:
+with open("training_log6.csv", "r") as f:
     reader = csv.reader(f)
 
     for row in reader:
@@ -18,7 +18,7 @@ with open("training_log5.csv", "r") as f:
        # if episode >= 200:
        #     break
 
-        episodes.append(episode)
+        episodes.append(episode) 
         rewards.append(float(row[1]))
         steps.append(int(row[2]))
 

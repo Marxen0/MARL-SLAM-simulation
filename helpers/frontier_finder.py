@@ -63,7 +63,7 @@ def dijkstra_all(start, occ):
                 continue
 
             # Only walk on known free space
-            if occ[nx, ny] != 0:
+            if occ[nx, ny] not in (0,2):
                 continue
 
             neighbor = (nx, ny)
@@ -111,7 +111,7 @@ def compute_frontier_value(fx, fy, occ):
     """
     Count unknown neighbors around a frontier.
     """
-
+    if occ[fx][fy] == 2: return 1
     value = 0
 
     width, height = occ.shape
@@ -141,7 +141,7 @@ def get_frontiers(occ):
     for x in range(1, width - 1):
         for y in range(1, height - 1):
 
-            if occ[x, y] != 0:
+            if occ[x, y] not in (0,2):
                 continue
 
             neighbors = [

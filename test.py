@@ -40,7 +40,7 @@ def test():
     actor = Actor()
 
     actor.load_state_dict(
-        torch.load("models3/actor_final.pth", map_location="cpu")
+        torch.load("models4/actor_final.pth", map_location="cpu")
     )
 
     actor.eval()
@@ -82,11 +82,15 @@ def test():
         total_reward += np.sum(rewards)
 
         viewer.render(
-            env.global_map,
+            env.ag_occ[0],
             env.ag_pos,
         #    obs[0],
         )
-
+        print(env.cached_paths[0])
+        for x in range(len(env.ag_pos)):
+            for y in range(len(env.ag_pos)):
+                if env.ag_pos[x][0] == env.ag_pos[y][0] and env.ag_pos[x][1] == env.ag_pos[y][1]:
+                    print("Agent ", x , " have same pos as agent ", y, " at :", env.ag_pos[x])
         time.sleep(0.5)
 
     print(f"Finished! Reward: {total_reward}")

@@ -3,7 +3,7 @@ import numpy as np
 from helpers.map_generator import create_house, visualize_occ
 from helpers.frontier_finder import get_frontiers, filter_frontiers
 # Tambahkan import ini di bagian atas file environment Anda
-from helpers.agent_movement import walk_agent, check_done, check_agent_movement
+from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty
 from collections import deque
 
 
@@ -148,7 +148,7 @@ class environment():
         self.cached_paths = {}
         self.ag_observations = []
         self.global_map = np.full((self.world_widht, self.world_height), -1)
-        self.ag_occ, self.ag_pos = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
+        self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
         for agent in range(self.ag_num):
             obs, ag_cached_paht = self.agent_observation(agent)
             self.ag_observations.append(obs)
@@ -197,7 +197,7 @@ class environment():
                     current_step_paths.append(self.ag_pos[agent_idx])
             
             # Pass single-step coordinates to your walk_agent helper
-            self.ag_occ, self.ag_pos = walk_agent(self.world, self.ag_occ, self.ag_ray_count, current_step_paths)
+            self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, current_step_paths)
             new_time += 1
             
             self.global_map = combine_occ(self.ag_occ)
@@ -211,7 +211,11 @@ class environment():
                 break
 
         # 3. Rewards tracking
-        reward = np.full(self.ag_num, -new_time)
+        proximity_rewards = np.array(proximity_penalty(self.ag_pos))
+        time_rewards = np.zeros(self.ag_num)
+        time_rewards[0] = -new_time * 0.1
+
+        rewards = proximity_rewards + time_rewards + np.array(walk_penalty)
         self.time += new_time
         
         # Clear old tracking cache
@@ -223,4 +227,4 @@ class environment():
             obs, ag_cached_paht = self.agent_observation(agent)
             self.ag_observations.append(obs)
             self.cached_paths[agent] = ag_cached_paht
-        return self.ag_observations, reward, done
+        return self.ag_observations, rewards, done
