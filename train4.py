@@ -98,7 +98,7 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-    MODELSFOLDER = "models6"
+    MODELSFOLDER = "models7"
     os.makedirs(
         MODELSFOLDER,
         exist_ok=True
@@ -406,7 +406,7 @@ def train():
             )
 
         with open(
-            "training_log8.csv",
+            "training_log9.csv",
             "a",
             newline=""
         ) as f:

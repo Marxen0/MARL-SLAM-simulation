@@ -3,7 +3,7 @@ import numpy as np
 from helpers.map_generator import create_house, OccupancyViewer
 from helpers.frontier_finder import observation
 # Tambahkan import ini di bagian atas file environment Anda
-from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty
+from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty, proximity_penalty_dijkstra
 from collections import deque
 import time
 import random
@@ -217,7 +217,8 @@ class environment():
                 break
 
         # 3. Rewards tracking
-        proximity_rewards = np.array(proximity_penalty(self.ag_pos))
+        ag_dis_ag = [self.observation[i]["other_agent_dijkstra"] for i in range(self.ag_num)]
+        proximity_rewards = np.array(proximity_penalty_dijkstra(ag_dis_ag))
         time_rewards = np.full(self.ag_num, -new_time * 0.1)
 
         rewards =  proximity_rewards + time_rewards + np.array(walk_penalty)
