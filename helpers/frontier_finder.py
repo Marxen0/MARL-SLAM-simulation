@@ -417,6 +417,7 @@ def build_frontier_feature(
     self_dx,
     self_dy,
     self_dijkstra,
+    cached_path,
     agent_features
 ):
     return {
@@ -427,7 +428,8 @@ def build_frontier_feature(
         "self_dijkstra": self_dijkstra,
         "frontier_position" : frontier_position,
 
-        "agents": agent_features
+        "agents": agent_features,
+        "cached_paht" : cached_path
     }
 
 
