@@ -1,7 +1,7 @@
 import numpy as np
 # Import your standalone helper functions from the helpers package
 from helpers.map_generator import create_house, visualize_occ
-from helpers.frontier_finder import get_frontiers, filter_frontiers, observation
+from helpers.frontier_finder import observation
 # Tambahkan import ini di bagian atas file environment Anda
 from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty
 from collections import deque
@@ -165,11 +165,11 @@ class environment():
         # 1. Assign new paths ONLY to agents that are idle (empty path list)
         for agent_idx in range(self.ag_num):
             if len(self.ag_paths[agent_idx]) == 0:
+                chosen_action = actions[agent_idx]
                 if not self.masked_action[agent_idx][chosen_action]:
                     raise ValueError(
                         f"Agent {agent_idx} picked invalid action {chosen_action}"
                     )
-                chosen_action = actions[agent_idx]
                 
                 # CRITICAL: Force convert the cached path to a list of coordinates
                 # shapes should look like: [(x1,y1), (x2,y2), ...]
@@ -210,7 +210,7 @@ class environment():
         proximity_rewards = np.array(proximity_penalty(self.ag_pos))
         time_rewards = np.full(self.ag_num, -new_time * 0.1)
 
-        rewards = proximity_rewards + time_rewards + np.array(walk_penalty)
+        rewards =  time_rewards + np.array(walk_penalty)
         self.time += new_time
         if not done:
             self.update_agent_observation(agents_needing_decision)

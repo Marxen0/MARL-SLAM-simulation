@@ -1,6 +1,5 @@
 import heapq
 import numpy as np
-from map_generator import visualize_occ
 from scipy import ndimage
 import heapq
 import numpy as np
