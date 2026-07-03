@@ -102,13 +102,8 @@ def combine_occ(ag_occ):
     
     return global_map
 class environment():
-    def __init__(self, agent_num, agent_ray_count, world_widht, world_height, seed=None, render=False):
+    def __init__(self, agent_num, agent_ray_count, world_widht, world_height, render=False):
         self.render = render
-        if seed==None:
-            seed = random.randint(0, 99999999)
-        np.random.seed(seed)
-        random.seed(seed)
-        self.seed = seed
         self.world_widht = world_widht
         self.world_height = world_height
         self.world = np.zeros((self.world_widht, self.world_height))
@@ -123,10 +118,11 @@ class environment():
             cell_size=20
         )
     def reset(self, seed=None):
-        if seed!=None:
-            np.random.seed(seed)
-            random.seed(seed)
-            self.seed = seed
+        if seed==None:
+            seed = random.randint(0, 99999999)
+        np.random.seed(seed)
+        random.seed(seed)
+        self.seed = seed
         self.world = create_house(self.world_widht, self.world_height, self.seed)
 
         
@@ -213,7 +209,7 @@ class environment():
                     self.ag_pos,
                     self.ag_target,
                 )
-                time.sleep(0.3)
+                time.sleep(0.1)
                 
             # BREAK CONDITION: Check if any agent has completely finished their path
             agents_needing_decision = [i for i in range(self.ag_num) if len(self.ag_paths[i]) == 0]
@@ -224,7 +220,7 @@ class environment():
         proximity_rewards = np.array(proximity_penalty(self.ag_pos))
         time_rewards = np.full(self.ag_num, -new_time * 0.1)
 
-        rewards =  time_rewards + np.array(walk_penalty)
+        rewards =  proximity_rewards + time_rewards + np.array(walk_penalty)
         self.time += new_time
         if not done:
             self.update_agent_observation(agents_needing_decision)

@@ -110,7 +110,7 @@ def compute_frontier_value(fx, fy, occ):
     """
     Count unknown neighbors around a frontier.
     """
-    if occ[fx][fy] == 2: return 1 #if the frontier is on a friend path return the value to 1
+    if occ[fx][fy] == 2: return -1 #if the frontier is on a friend path return the value to 1
     value = 0
 
     width, height = occ.shape

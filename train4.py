@@ -98,9 +98,9 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-
+    MODELSFOLDER = "models6"
     os.makedirs(
-        "models5",
+        MODELSFOLDER,
         exist_ok=True
     )
 
@@ -406,7 +406,7 @@ def train():
             )
 
         with open(
-            "training_log7.csv",
+            "training_log8.csv",
             "a",
             newline=""
         ) as f:
@@ -447,13 +447,13 @@ def train():
 
                 checkpoint,
 
-                f"models5/checkpoint_{ep}.pth"
+                f"{MODELSFOLDER}/checkpoint_{ep}.pth"
 
             )
 
             print(
 
-                f"Saved models5/checkpoint_{ep}.pth"
+                f"Saved {MODELSFOLDER}/checkpoint_{ep}.pth"
 
             )
 
@@ -461,14 +461,14 @@ def train():
 
         actor.state_dict(),
 
-        "models5/actor_final.pth"
+        f"{MODELSFOLDER}/actor_final.pth"
     )
 
     torch.save(
 
         critic.state_dict(),
 
-        "models5/critic_final.pth"
+        f"{MODELSFOLDER}/critic_final.pth"
     )
 
     print("Training complete.")

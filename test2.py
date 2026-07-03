@@ -110,7 +110,7 @@ def test():
 
     actor.load_state_dict(
         torch.load(
-            "models5/actor_final.pth",
+            "models6/actor_final.pth",
             map_location="cpu"
         )
     )

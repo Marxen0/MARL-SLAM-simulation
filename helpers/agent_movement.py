@@ -196,3 +196,51 @@ def proximity_penalty(ag_pos):
         rewards.append(penalty*100)
 
     return rewards
+def proximity_penalty_dijkstra(
+    ag_dis_ag,
+    min_distance=5,
+    penalty_scale=0.1
+):
+    """
+    Penalize agents that are too close according
+    to Dijkstra distance.
+
+    Args:
+        ag_dis_ag:
+            [
+                [ag0->ag1, ag0->ag2],
+                [ag1->ag0, ag1->ag2],
+                ...
+            ]
+
+        min_distance:
+            Desired minimum path distance.
+
+        penalty_scale:
+            Penalty per missing cell.
+
+    Returns:
+        List of rewards/penalties for each agent.
+    """
+
+    rewards = []
+
+    for distances in ag_dis_ag:
+
+        penalty = 0
+
+        for d in distances:
+
+            # Ignore unreachable agents
+            if d >= 999:
+                continue
+
+            if d < min_distance:
+
+                penalty -= (
+                    min_distance - d
+                ) * penalty_scale
+
+        rewards.append(penalty)
+
+    return rewards
