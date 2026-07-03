@@ -155,15 +155,15 @@ class environment():
         self.ag_paths = [[] for _ in range(self.ag_num)]
         self.time = 0
         self.cached_paths = {}
-        self.ag_observations = []
+        self.ag_frontier_choice = []
         self.global_map = np.full((self.world_widht, self.world_height), -1)
         self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
         for agent in range(self.ag_num):
             obs, ag_cached_paht = self.agent_observation(agent)
-            self.ag_observations.append(obs)
+            self.ag_frontier_choice.append(obs)
             self.cached_paths[agent] = ag_cached_paht
       #  visualize_occ(self.ag_occ[0])
-        return self.ag_observations
+        return self.ag_frontier_choice
     def agent_observation(self, agent):
         agent_frontiers = get_frontiers(self.ag_occ[agent])
         agent_frontiers_choice, ag_cached_path = filter_frontiers(agent, agent_frontiers, self.ag_pos, self.ag_occ[agent], self.ag_target)
@@ -190,7 +190,7 @@ class environment():
                 self.ag_paths[agent_idx] = list(self.cached_paths[agent_idx][chosen_action])
                 
                 # Update its target profile matrix
-                self.ag_target[agent_idx] = self.ag_observations[agent_idx][chosen_action]
+                self.ag_target[agent_idx] = self.ag_frontier_choice[agent_idx][chosen_action]
 
         # 2. Environment Simulation Loop
         done = False
@@ -231,9 +231,9 @@ class environment():
         self.cached_paths.clear()
         
         # 4. Generate new observations
-        self.ag_observations = []
+        self.ag_frontier_choice = []
         for agent in range(self.ag_num):
             obs, ag_cached_paht = self.agent_observation(agent)
-            self.ag_observations.append(obs)
+            self.ag_frontier_choice.append(obs)
             self.cached_paths[agent] = ag_cached_paht
-        return self.ag_observations, rewards, done
+        return self.ag_frontier_choice, rewards, done
