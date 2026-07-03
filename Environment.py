@@ -149,7 +149,7 @@ class environment():
 
         return self.observation, self.masked_action
     def agent_observation(self, agent):
-        agent_obs, agent_mask = observation(agent, self.ag_pos, self.ag_occ[agent], self.ag_target)
+        agent_obs, agent_mask = observation(agent, self.ag_pos, self.ag_occ[agent], self.ag_target, self.ag_num)
         return agent_obs, agent_mask
     def critic_observation(self):
         global_observation = []

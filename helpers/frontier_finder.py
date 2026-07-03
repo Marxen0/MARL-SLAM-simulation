@@ -327,7 +327,7 @@ def dijkstra_overlap_percentage(path_a, path_b):
 
     # Percentage relative to path_a
     return overlap / len(path_a)
-def observation(agent_idx, ag_pos, ag_occ, ag_target):
+def observation(agent_idx, ag_pos, ag_occ, ag_target, ag_num):
     #SAFETY
     if len(ag_target)<len(ag_pos): print("ag_target is smaller than ag_pos")
     for x in ag_target:
@@ -344,7 +344,7 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target):
         action_mask = []
         for _ in range(5):
             frontier_features.append(
-                empty_frontier_feature(agent_idx)
+                empty_frontier_feature(agent_idx, ag_num)
             )
             action_mask.append(False)
 
@@ -360,7 +360,7 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target):
         action_mask = []
         for _ in range(5):
             frontier_features.append(
-                empty_frontier_feature(agent_idx)
+                empty_frontier_feature(agent_idx, ag_num)
             )
             action_mask.append(False)
 
@@ -421,7 +421,7 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target):
     while len(frontier_features) < 5:
 
         frontier_features.append(
-            empty_frontier_feature(agent_idx)
+            empty_frontier_feature(agent_idx, ag_num)
         )
 
         action_mask.append(False)
@@ -432,7 +432,6 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target):
     )
 
     return obs, action_mask
-
 def build_agent_feature(
     target_to_frontier_euclidean,
     agent_to_frontier_euclidean,
@@ -453,8 +452,19 @@ def build_agent_feature(
         "ag_to_frontier_dx": ag_to_frontier_dx,
         "ag_to_frontier_dy": ag_to_frontier_dy,
     }
+def empty_agent_feature():
+    return build_agent_feature(
+        target_to_frontier_euclidean=999,
+        agent_to_frontier_euclidean=999,
+        dijkstra_sum_ag=999,
+        dijkstra_overlap_percent_ag=0,
+        ag_target_dx=0,
+        ag_target_dy=0,
+        ag_to_frontier_dx=0,
+        ag_to_frontier_dy=0
+    )
 
-def empty_frontier_feature(agent_idx):
+def empty_frontier_feature(agent_idx, ag_num):
     return build_frontier_feature(
         agent_self=agent_idx,
         frontier_value=0,
@@ -463,7 +473,7 @@ def empty_frontier_feature(agent_idx):
         self_dy=0,
         self_dijkstra=999,
         cached_path=[],
-        agent_features=[]
+        agent_features=[empty_agent_feature() for _ in range(ag_num-1)]
     )
 def build_frontier_feature(
     agent_self,
