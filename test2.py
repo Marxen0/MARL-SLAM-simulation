@@ -89,7 +89,8 @@ def test():
         AGENTS,
         RAYS,
         W,
-        H
+        H,
+        render=True
     )
 
     obs, action_mask = env.reset()
@@ -116,11 +117,11 @@ def test():
 
     actor.eval()
 
-    viewer = OccupancyViewer(
-        env.world_widht,
-        env.world_height,
-        cell_size=20
-    )
+    #viewer = OccupancyViewer(
+     #   env.world_widht,
+      #  env.world_height,
+       # cell_size=20
+    #)
 
     done = False
     total_reward = 0
@@ -199,10 +200,10 @@ def test():
         # ==========================================
         # RENDER
         # ==========================================
-        viewer.render(
-            env.ag_occ[0],
-            env.ag_pos
-        )
+   #     viewer.render(
+   #         env.ag_occ[0],
+   #         env.ag_pos
+   #     )
 
         # Debug collisions
         for i in range(env.ag_num):
@@ -218,6 +219,7 @@ def test():
         time.sleep(0.2)
 
     print()
+    print("seed : ",env.seed)
     print("Finished")
     print("Reward:", total_reward)
     print("Steps:", env.time)

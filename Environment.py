@@ -1,6 +1,6 @@
 import numpy as np
 # Import your standalone helper functions from the helpers package
-from helpers.map_generator import create_house, visualize_occ
+from helpers.map_generator import create_house, OccupancyViewer
 from helpers.frontier_finder import observation
 # Tambahkan import ini di bagian atas file environment Anda
 from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty
@@ -102,7 +102,8 @@ def combine_occ(ag_occ):
     
     return global_map
 class environment():
-    def __init__(self, agent_num, agent_ray_count, world_widht, world_height, seed=None):
+    def __init__(self, agent_num, agent_ray_count, world_widht, world_height, seed=None, render=False):
+        self.render = render
         if seed==None:
             seed = random.randint(0, 99999999)
         np.random.seed(seed)
@@ -115,6 +116,12 @@ class environment():
         self.ag_num = agent_num
         self.ag_ray_count = agent_ray_count
         self.cached_paths = {}
+        if render == True:
+            self.viewer = OccupancyViewer(
+            self.world_widht,
+            self.world_height,
+            cell_size=20
+        )
     def reset(self, seed=None):
         if seed!=None:
             np.random.seed(seed)
@@ -200,6 +207,13 @@ class environment():
             done = check_done(self.global_map)
             if done:
                 break
+            if self.render:
+                self.viewer.render(
+                    self.global_map,
+                    self.ag_pos,
+                    self.ag_target,
+                )
+                time.sleep(0.3)
                 
             # BREAK CONDITION: Check if any agent has completely finished their path
             agents_needing_decision = [i for i in range(self.ag_num) if len(self.ag_paths[i]) == 0]
