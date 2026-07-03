@@ -384,29 +384,51 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
 
     return observation, cached_paths
 
-def build_agent_feature(euclidean_distance, ag_euclidean_distance, djikstra_sum, djikstra_overlap_percent, ag_target_dx, ag_target_dy, to_frontier_dx, to_frontier_dy):
+def build_agent_feature(
+    target_to_frontier_euclidean,
+    agent_to_frontier_euclidean,
+    dijkstra_sum,
+    dijkstra_overlap_percent,
+    ag_target_dx,
+    ag_target_dy,
+    ag_to_frontier_dx,
+    ag_to_frontier_dy
+):
     return {
-        "euclidean_distance" : euclidean_distance,
-        "ag_euclidean_distance" : ag_euclidean_distance,
-        "djikstra_sum" : djikstra_sum,
-        "djikstra_overlap_percent" : djikstra_overlap_percent,
-        "ag_target_dx" : ag_target_dx,
-        "ag_target_dy" : ag_target_dy,
-        "to_frontier_dx" : to_frontier_dx,
-        "to_frontier_dy" : to_frontier_dy
+        "target_to_frontier_euclidean": target_to_frontier_euclidean,
+        "agent_to_frontier_euclidean": agent_to_frontier_euclidean,
+        "dijkstra_sum": dijkstra_sum,
+        "dijkstra_overlap_percent": dijkstra_overlap_percent,
+        "ag_target_dx": ag_target_dx,
+        "ag_target_dy": ag_target_dy,
+        "ag_to_frontier_dx": ag_to_frontier_dx,
+        "ag_to_frontier_dy": ag_to_frontier_dy,
     }
 
-def build_frontier_feature(frontier_value, self_dx, self_dy, self_djikstra, all_agent_features):
+
+def build_frontier_feature(
+    frontier_value,
+    frontier_position,
+    self_dx,
+    self_dy,
+    self_dijkstra,
+    agent_features
+):
     return {
-        "frontier_value" : frontier_value,
-        "self_dx" : self_dx,
-        "self_dy" : self_dy,
-        "self_djikstra" : self_djikstra,
-        "agents": all_agent_features
+        "frontier_value": frontier_value,
+        "self_dx": self_dx,
+        "self_dy": self_dy,
+        "self_dijkstra": self_dijkstra,
+        "agents": agent_features,
+        "frontier_position" : frontier_position
     }
 
-def build_observations(ag_dis_ag, frontier_features):
+
+def build_observation(
+    other_agent_dijkstra,
+    frontier_features
+):
     return {
-        "other_agent_djikstra" : ag_dis_ag,
-        "frontiers" : frontier_features
+        "other_agent_dijkstra": other_agent_dijkstra,
+        "frontiers": frontier_features,
     }
