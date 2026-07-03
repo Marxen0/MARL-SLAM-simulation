@@ -287,6 +287,7 @@ class OccupancyViewer:
                 x,y = agent_positions[i]
                 color = (255,0,0)
                 if i == 0: color = (0,0,255)
+                if i == 1: color = (255,0,255)
                 center = (
                     int(x * self.cell_size + self.cell_size / 2),
                     int(y * self.cell_size + self.cell_size / 2)
@@ -305,32 +306,45 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
 
-def visualize_occ(occ):
+def visualize_occ(occ, ag_pos=None):
     """
-    Visualize an occupancy grid with coordinates and cell values.
+    Visualize an occupancy grid with coordinates, cell values,
+    and agent positions.
 
     Occupancy encoding:
         -1 = unknown (gray)
          0 = free (white)
          1 = wall (black)
+         2 = friend path (yellow)
+
+    Agent colors:
+         0 = blue
+         1 = purple
+         2 = red
 
     Args:
         occ (np.ndarray):
             2D occupancy grid.
+
+        ag_pos (list, optional):
+            List of agent positions:
+            [(x0, y0), (x1, y1), ...]
     """
 
     height, width = occ.shape
 
-    # Convert values to color indices
-    # -1 -> 0 (gray)
-    #  0 -> 1 (white)
-    #  1 -> 2 (black)
+    # Convert values:
+    # -1 -> 0
+    #  0 -> 1
+    #  1 -> 2
+    #  2 -> 3
     display_grid = occ + 1
 
     cmap = ListedColormap([
-        "gray",   # unknown (-1)
-        "white",  # free (0)
-        "black"   # wall (1)
+        "gray",    # -1 unknown
+        "white",   # 0 free
+        "black",   # 1 wall
+        "yellow"   # 2 friend path
     ])
 
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -340,7 +354,7 @@ def visualize_occ(occ):
         cmap=cmap,
         origin="lower",
         vmin=0,
-        vmax=2
+        vmax=3
     )
 
     # Show coordinates
@@ -348,18 +362,25 @@ def visualize_occ(occ):
     ax.set_yticks(np.arange(height))
 
     # Draw grid lines
-    ax.set_xticks(np.arange(-0.5, width, 1), minor=True)
-    ax.set_yticks(np.arange(-0.5, height, 1), minor=True)
+    ax.set_xticks(
+        np.arange(-0.5, width, 1),
+        minor=True
+    )
+
+    ax.set_yticks(
+        np.arange(-0.5, height, 1),
+        minor=True
+    )
 
     ax.grid(which="minor")
 
-    # Print the actual cell value inside each square
+    # Print cell values
     for x in range(width):
         for y in range(height):
 
             value = int(occ[y, x])
 
-            # White text on black walls
+            # White text on dark cells
             text_color = "white" if value == 1 else "black"
 
             ax.text(
@@ -371,6 +392,38 @@ def visualize_occ(occ):
                 color=text_color,
                 fontsize=8
             )
+
+    # ==========================
+    # Draw agents
+    # ==========================
+    if ag_pos is not None:
+
+        agent_colors = [
+            "blue",    # Agent 0
+            "purple",  # Agent 1
+            "red"      # Agent 2
+        ]
+
+        for i, pos in enumerate(ag_pos):
+
+            x, y = pos
+
+            color = (
+                agent_colors[i]
+                if i < len(agent_colors)
+                else "green"
+            )
+
+            ax.scatter(
+                x,
+                y,
+                c=color,
+                s=300,
+                edgecolors="black",
+                label=f"Agent {i}"
+            )
+
+        ax.legend()
 
     ax.set_title("Occupancy Grid Debug View")
     plt.show()
