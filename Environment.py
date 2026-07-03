@@ -1,7 +1,7 @@
 import numpy as np
 # Import your standalone helper functions from the helpers package
 from helpers.map_generator import create_house, visualize_occ
-from helpers.frontier_finder import get_frontiers, filter_frontiers
+from helpers.frontier_finder import get_frontiers, filter_frontiers, observation
 # Tambahkan import ini di bagian atas file environment Anda
 from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty
 from collections import deque
@@ -101,30 +101,6 @@ def combine_occ(ag_occ):
     global_map = np.max(ag_occ_array, axis=0)
     
     return global_map
-def agent_target(actions, agent_observations):
-    """
-    Maps each agent's discrete action to its chosen frontier profile.
-    
-    Args:
-        actions: List or 1D array of shape (agent_num,) containing 
-                 integer actions between 0 and 4.
-        agent_observations: Array-like object or NumPy array of shape 
-                            (agent_num, 5,   containing frontier choices.
-                            
-    Returns:
-        np.ndarray: Selected targets of shape (agent_num, 7)
-    """
-    # Convert inputs to reliable numpy arrays
-    obs_array = np.asarray(agent_observations)
-    actions_array = np.asarray(actions, dtype=int)
-    
-    # Generate an array of row indices: [0, 1, ..., agent_num - 1]
-    agent_indices = np.arange(len(actions_array))
-    
-    # Advanced slicing picks the specific action row for each agent row
-    selected_targets = obs_array[agent_indices, actions_array]
-    
-    return selected_targets
 class environment():
     def __init__(self, agent_num, agent_ray_count, world_widht, world_height, seed=None):
         if seed==None:
@@ -148,27 +124,33 @@ class environment():
 
         
         start_pos = get_start_positions(self.world, self.ag_num)
-        self.ag_pos = start_pos
-        self.ag_target = np.zeros((self.ag_num, 6))
+        self.ag_pos = list(start_pos)
+        self.ag_target = start_pos
         self.ag_occ = np.full((self.ag_num, self.world_widht, self.world_height), -1)
         # Inside __init__ AND reset
         self.ag_paths = [[] for _ in range(self.ag_num)]
         self.time = 0
         self.cached_paths = {}
-        self.ag_frontier_choice = []
+        self.observation = {}
+        self.masked_action = {}
         self.global_map = np.full((self.world_widht, self.world_height), -1)
         self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
-        for agent in range(self.ag_num):
-            obs, ag_cached_paht = self.agent_observation(agent)
-            self.ag_frontier_choice.append(obs)
-            self.cached_paths[agent] = ag_cached_paht
+        self.update_agent_observation([i for i in range(self.ag_num)])
       #  visualize_occ(self.ag_occ[0])
-        return self.ag_frontier_choice
+        return self.observation, self.masked_action
+    def update_agent_observation(self, agents):
+
+        for agent in agents:
+
+            obs, mask = self.agent_observation(agent)
+
+            self.observation[agent] = obs
+            self.masked_action[agent] = mask
+
+        return self.observation, self.masked_action
     def agent_observation(self, agent):
-        agent_frontiers = get_frontiers(self.ag_occ[agent])
-        agent_frontiers_choice, ag_cached_path = filter_frontiers(agent, agent_frontiers, self.ag_pos, self.ag_occ[agent], self.ag_target)
-        observation = agent_frontiers_choice
-        return observation, ag_cached_path
+        agent_obs, agent_mask = observation(agent, self.ag_pos, self.ag_occ[agent], self.ag_target)
+        return agent_obs, agent_mask
     def critic_observation(self):
         global_observation = []
         global_observation.append(self.ag_target)
@@ -183,18 +165,23 @@ class environment():
         # 1. Assign new paths ONLY to agents that are idle (empty path list)
         for agent_idx in range(self.ag_num):
             if len(self.ag_paths[agent_idx]) == 0:
+                if not self.masked_action[agent_idx][chosen_action]:
+                    raise ValueError(
+                        f"Agent {agent_idx} picked invalid action {chosen_action}"
+                    )
                 chosen_action = actions[agent_idx]
                 
                 # CRITICAL: Force convert the cached path to a list of coordinates
                 # shapes should look like: [(x1,y1), (x2,y2), ...]
-                self.ag_paths[agent_idx] = list(self.cached_paths[agent_idx][chosen_action])
+                self.ag_paths[agent_idx] = self.observation[agent_idx]["frontiers"][chosen_action]["cached_path"]
                 
                 # Update its target profile matrix
-                self.ag_target[agent_idx] = self.ag_frontier_choice[agent_idx][chosen_action]
+                self.ag_target[agent_idx] = self.observation[agent_idx]["frontiers"][chosen_action]["frontier_position"]
 
         # 2. Environment Simulation Loop
         done = False
         new_time = 0
+        agents_needing_decision = []
         while True:
             current_step_paths = []
             for agent_idx in range(self.ag_num):
@@ -221,19 +208,10 @@ class environment():
 
         # 3. Rewards tracking
         proximity_rewards = np.array(proximity_penalty(self.ag_pos))
-        time_rewards = np.zeros(self.ag_num)
-        time_rewards[0] = -new_time * 0.1
+        time_rewards = np.full(self.ag_num, -new_time * 0.1)
 
         rewards = proximity_rewards + time_rewards + np.array(walk_penalty)
         self.time += new_time
-        
-        # Clear old tracking cache
-        self.cached_paths.clear()
-        
-        # 4. Generate new observations
-        self.ag_frontier_choice = []
-        for agent in range(self.ag_num):
-            obs, ag_cached_paht = self.agent_observation(agent)
-            self.ag_frontier_choice.append(obs)
-            self.cached_paths[agent] = ag_cached_paht
-        return self.ag_frontier_choice, rewards, done
+        if not done:
+            self.update_agent_observation(agents_needing_decision)
+        return self.observation, self.masked_action, rewards, done

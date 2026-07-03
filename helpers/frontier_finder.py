@@ -484,7 +484,7 @@ def build_frontier_feature(
         "frontier_position" : frontier_position,
 
         "agents": agent_features,
-        "cached_paht" : cached_path
+        "cached_path" : cached_path
     }
 
 
