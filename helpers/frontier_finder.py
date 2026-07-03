@@ -387,8 +387,10 @@ def filter_frontiers(agent_idx, frontiers, ag_pos, ag_occ, ag_target):
 def build_agent_feature(
     target_to_frontier_euclidean,
     agent_to_frontier_euclidean,
-    dijkstra_sum,
-    dijkstra_overlap_percent,
+    dijkstra_sum_ag,
+    dijkstra_sum_ag_target,
+    dijkstra_overlap_percent_ag,
+    dijkstra_overlap_percent_ag_target,
     ag_target_dx,
     ag_target_dy,
     ag_to_frontier_dx,
@@ -397,8 +399,10 @@ def build_agent_feature(
     return {
         "target_to_frontier_euclidean": target_to_frontier_euclidean,
         "agent_to_frontier_euclidean": agent_to_frontier_euclidean,
-        "dijkstra_sum": dijkstra_sum,
-        "dijkstra_overlap_percent": dijkstra_overlap_percent,
+        "dijkstra_sum_ag": dijkstra_sum_ag,
+        "dijkstra_overlap_percent_ag": dijkstra_overlap_percent_ag,
+        "dijkstra_sum_ag_target": dijkstra_sum_ag_target,
+        "dijkstra_overlap_percent_ag_target": dijkstra_overlap_percent_ag_target,
         "ag_target_dx": ag_target_dx,
         "ag_target_dy": ag_target_dy,
         "ag_to_frontier_dx": ag_to_frontier_dx,
@@ -407,6 +411,7 @@ def build_agent_feature(
 
 
 def build_frontier_feature(
+    agent_self,
     frontier_value,
     frontier_position,
     self_dx,
@@ -415,12 +420,14 @@ def build_frontier_feature(
     agent_features
 ):
     return {
+        "agent_self" : agent_self,
         "frontier_value": frontier_value,
         "self_dx": self_dx,
         "self_dy": self_dy,
         "self_dijkstra": self_dijkstra,
-        "agents": agent_features,
-        "frontier_position" : frontier_position
+        "frontier_position" : frontier_position,
+
+        "agents": agent_features
     }
 
 
