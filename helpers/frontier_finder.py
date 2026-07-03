@@ -431,7 +431,7 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target):
         frontier_features=frontier_features
     )
 
-    return obs
+    return obs, action_mask
 
 def build_agent_feature(
     target_to_frontier_euclidean,
