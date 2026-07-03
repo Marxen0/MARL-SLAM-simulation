@@ -5,7 +5,8 @@ from helpers.frontier_finder import get_frontiers, filter_frontiers
 # Tambahkan import ini di bagian atas file environment Anda
 from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty
 from collections import deque
-
+import time
+import random
 
 def get_start_positions(world, num_agents):
     """
@@ -125,7 +126,12 @@ def agent_target(actions, agent_observations):
     
     return selected_targets
 class environment():
-    def __init__(self, agent_num, agent_ray_count, world_widht, world_height):
+    def __init__(self, agent_num, agent_ray_count, world_widht, world_height, seed=None):
+        if seed==None:
+            seed = random.randint(0, 99999999)
+        np.random.seed(seed)
+        random.seed(seed)
+        self.seed = seed
         self.world_widht = world_widht
         self.world_height = world_height
         self.world = np.zeros((self.world_widht, self.world_height))
@@ -134,7 +140,11 @@ class environment():
         self.ag_ray_count = agent_ray_count
         self.cached_paths = {}
     def reset(self, seed=None):
-        self.world = create_house(self.world_widht, self.world_height, seed)
+        if seed!=None:
+            np.random.seed(seed)
+            random.seed(seed)
+            self.seed = seed
+        self.world = create_house(self.world_widht, self.world_height, self.seed)
 
         
         start_pos = get_start_positions(self.world, self.ag_num)
@@ -144,7 +154,6 @@ class environment():
         # Inside __init__ AND reset
         self.ag_paths = [[] for _ in range(self.ag_num)]
         self.time = 0
-        self.ag_observations = []
         self.cached_paths = {}
         self.ag_observations = []
         self.global_map = np.full((self.world_widht, self.world_height), -1)
