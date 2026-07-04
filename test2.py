@@ -2,7 +2,7 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
-
+import os
 import Environment
 from helpers.map_generator import OccupancyViewer
 
@@ -108,9 +108,15 @@ def test():
 
     actor = Actor(input_dim)
 
+    VERSION = "Version 1 Training"
+
+    MODEL_FOLDER = os.path.join(
+        VERSION,
+        "models"
+    )
     actor.load_state_dict(
         torch.load(
-            "models7/actor_final.pth",
+            f"{MODEL_FOLDER}/actor_final.pth",
             map_location="cpu"
         )
     )

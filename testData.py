@@ -2,7 +2,7 @@ import time
 import random
 import csv
 import numpy as np
-
+import os
 import Environment
 
 
@@ -45,9 +45,17 @@ def test_random():
         H,
         render=RENDER
     )
-
+    VERSION = "Version 1 Training"
+    os.makedirs(
+        VERSION,
+        exist_ok=True
+    )
+    LOG_FILE = os.path.join(
+        VERSION,
+        "random_test.csv"
+    )
     with open(
-        "random_test.csv",
+        LOG_FILE,
         "w",
         newline=""
     ) as f:

@@ -98,10 +98,20 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-    MODELSFOLDER = "models7"
+    VERSION = "Version 1 Training"
+
+    MODEL_FOLDER = os.path.join(
+        VERSION,
+        "models"
+    )
+
     os.makedirs(
-        MODELSFOLDER,
+        MODEL_FOLDER,
         exist_ok=True
+    )
+    LOG_FILE = os.path.join(
+        VERSION,
+        "training_log.csv"
     )
 
     env = Environment.environment(
@@ -406,7 +416,7 @@ def train():
             )
 
         with open(
-            "training_log9.csv",
+            LOG_FILE,
             "a",
             newline=""
         ) as f:
@@ -447,13 +457,13 @@ def train():
 
                 checkpoint,
 
-                f"{MODELSFOLDER}/checkpoint_{ep}.pth"
+                f"{MODEL_FOLDER}/checkpoint_{ep}.pth"
 
             )
 
             print(
 
-                f"Saved {MODELSFOLDER}/checkpoint_{ep}.pth"
+                f"Saved {MODEL_FOLDER}/checkpoint_{ep}.pth"
 
             )
 
@@ -461,14 +471,14 @@ def train():
 
         actor.state_dict(),
 
-        f"{MODELSFOLDER}/actor_final.pth"
+        f"{MODEL_FOLDER}/actor_final.pth"
     )
 
     torch.save(
 
         critic.state_dict(),
 
-        f"{MODELSFOLDER}/critic_final.pth"
+        f"{MODEL_FOLDER}/critic_final.pth"
     )
 
     print("Training complete.")
