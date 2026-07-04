@@ -21,6 +21,7 @@ def encode_frontier_feature(frontier):
 
         frontier["frontier_value"],
 
+        frontier["self_distance"],
         frontier["self_dx"],
         frontier["self_dy"],
 

@@ -115,8 +115,7 @@ class environment():
             self.viewer = OccupancyViewer(
             self.world_widht,
             self.world_height,
-            cell_size=20
-        )
+            cell_size=20)
     def reset(self, seed=None):
         if seed==None:
             seed = random.randint(0, 99999999)
@@ -139,11 +138,12 @@ class environment():
         self.global_map = np.full((self.world_widht, self.world_height), -1)
         self.prev_global_map = self.global_map.copy()
         self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
-        self.update_agent_observation([i for i in range(self.ag_num)])
+        self.update_agent_observation()
       #  visualize_occ(self.ag_occ[0])
         return self.observation, self.masked_action
-    def update_agent_observation(self, agents):
-
+    def update_agent_observation(self, agents=None):
+        if agents == None:
+            agents = [i for i in range(self.ag_num)]
         for agent in agents:
 
             obs, mask = self.agent_observation(agent)
@@ -182,6 +182,14 @@ class environment():
                 # Update its target profile matrix
                 self.ag_target[agent_idx] = self.observation[agent_idx]["frontiers"][chosen_action]["frontier_position"]
 
+                if self.render and agent_idx == 0:
+                    to_render = [self.observation[0]["frontiers"][i]["frontier_position"] for i in range(5)]
+                    self.viewer.render(
+                    self.ag_occ[0],
+                    self.ag_pos,
+                    to_render)
+                    time.sleep(0.5)
+                    print(self.observation[0]["frontiers"][actions[0]])
         # 2. Environment Simulation Loop
         done = False
         new_time = 0
@@ -208,12 +216,18 @@ class environment():
             if done:
                 break
             if self.render:
-                self.viewer.render(
-                    self.global_map,
+                    self.viewer.render(
+                    self.ag_occ[0],
                     self.ag_pos,
-                    self.ag_target,
-                )
-                time.sleep(0.1)
+                    [self.observation[0]["frontiers"][i]["frontier_position"] for i in range(5)])
+                    time.sleep(0.5)
+       #     if self.render:
+        #        self.viewer.render(
+         #           self.ag_occ[0],
+          #          self.ag_pos,
+           #         self.ag_target,
+            #    )
+             #   time.sleep(0.1)
             proximity_reward = proximity_reward + np.asarray(proximity_penalty(self.ag_pos))
                 
             # BREAK CONDITION: Check if any agent has completely finished their path
@@ -222,17 +236,17 @@ class environment():
                 break
 
         # 3. Rewards tracking
-        time_rewards = -new_time * 0.1
+        time_rewards = -new_time 
         # Count unknown cells
         prev_unknown = np.sum(self.prev_global_map == -1)
         curr_unknown = np.sum(self.global_map == -1)
 
         # Positive if we explored new cells
         exploration_reward = prev_unknown - curr_unknown
-        rewards =  time_rewards + exploration_reward
+        rewards =  time_rewards + (exploration_reward/(-time_rewards))
 
         self.time += new_time
         self.prev_global_map = self.global_map.copy()
         if not done:
-            self.update_agent_observation(agents_needing_decision)
+            self.update_agent_observation()
         return self.observation, self.masked_action, rewards, done

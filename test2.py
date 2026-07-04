@@ -22,6 +22,7 @@ def observation_to_tensor(obs, current_time):
 
         features.extend([
             frontier["frontier_value"],
+            frontier["self_distance"],
             frontier["self_dx"],
             frontier["self_dy"],
             frontier["self_dijkstra"],
@@ -81,7 +82,7 @@ class Actor(nn.Module):
 def test():
 
     AGENTS = 3
-    RAYS = 16
+    RAYS = 120
     W = 50
     H = 50
 
@@ -108,7 +109,7 @@ def test():
 
     actor = Actor(input_dim)
 
-    VERSION = "Version 3 Training"
+    VERSION = "Version 6 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,

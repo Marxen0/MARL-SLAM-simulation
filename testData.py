@@ -45,7 +45,7 @@ def test_random():
         H,
         render=RENDER
     )
-    VERSION = "Version 2 Training"
+    VERSION = "Version 4 Training"
     os.makedirs(
         VERSION,
         exist_ok=True

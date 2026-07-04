@@ -83,10 +83,10 @@ def get_global_state(env):
     # ==========================================
 
     unknown_count = np.sum(env.global_map == -1)
-    features.append(unknown_count/ (h * w))
 
     # 3x3 unknown density
     h, w = env.global_map.shape
+    features.append(unknown_count/ (h * w))
 
     cell_h = h // 3
     cell_w = w // 3
@@ -242,7 +242,7 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-    VERSION = "Version 3 Training"
+    VERSION = "Version 6 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -405,7 +405,23 @@ def train():
                     log_probs[i] = dist.log_prob(
                         action
                     )
+            # ==================================
+            # UPDATE PATHS AND TARGETS
+            # ==================================
 
+            for i in agents_need_action:
+
+                action = actions[i]
+
+                chosen_frontier = obs[i]["frontiers"][action]
+
+                env.ag_paths[i] = chosen_frontier[
+                    "cached_path"
+                ]
+
+                env.ag_target[i] = chosen_frontier[
+                    "frontier_position"
+                ]
             global_state = torch.FloatTensor(
                 get_global_state(env)
             ).unsqueeze(0)

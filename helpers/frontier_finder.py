@@ -253,8 +253,8 @@ def frontier_information_gain(
     """
     Count unknown cells around a frontier.
     """
-
     x, y = frontier
+    if occ[x][y] == 2: return -5
     value = 0
 
     width, height = occ.shape
@@ -487,7 +487,7 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target, ag_num):
         return obs, action_mask
 
     frontier_metrics = get_frontier_metrics(
-        reachable_frontiers,
+        clustered_frontiers,
         dist,
         ag_pos,
         ag_target,
@@ -525,6 +525,7 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target, ag_num):
             agent_self=agent_idx,
             frontier_value=frontier["value"],
             frontier_position=frontier["coord"],
+            self_distance_euclidean=euclidean_distance_calculation(current_agent_pos, frontier["coord"]),
             self_dx= self_direction[0],
             self_dy= self_direction[1],
             self_dijkstra=frontier["dist_to_agent_dijkstra"],
@@ -585,6 +586,7 @@ def empty_frontier_feature(agent_idx, ag_num):
         agent_self=agent_idx,
         frontier_value=0,
         frontier_position=(-1, -1),
+        self_distance_euclidean=999,
         self_dx=0,
         self_dy=0,
         self_dijkstra=999,
@@ -595,6 +597,7 @@ def build_frontier_feature(
     agent_self,
     frontier_value,
     frontier_position,
+    self_distance_euclidean,
     self_dx,
     self_dy,
     self_dijkstra,
@@ -606,6 +609,7 @@ def build_frontier_feature(
         "frontier_value": frontier_value,
         "self_dx": self_dx,
         "self_dy": self_dy,
+        "self_distance" : self_distance_euclidean,
         "self_dijkstra": self_dijkstra,
         "frontier_position" : frontier_position,
 
