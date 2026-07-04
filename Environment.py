@@ -137,6 +137,7 @@ class environment():
         self.observation = {}
         self.masked_action = {}
         self.global_map = np.full((self.world_widht, self.world_height), -1)
+        self.prev_global_map = self.global_map.copy()
         self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
         self.update_agent_observation([i for i in range(self.ag_num)])
       #  visualize_occ(self.ag_occ[0])
@@ -221,9 +222,17 @@ class environment():
                 break
 
         # 3. Rewards tracking
-        time_rewards = np.full(self.ag_num, -new_time * 0.1)
-        rewards =  proximity_reward + time_rewards + final_walk_penalty
+        time_rewards = -new_time * 0.1
+        # Count unknown cells
+        prev_unknown = np.sum(self.prev_global_map == -1)
+        curr_unknown = np.sum(self.global_map == -1)
+
+        # Positive if we explored new cells
+        exploration_reward = prev_unknown - curr_unknown
+        rewards =  time_rewards + exploration_reward
+
         self.time += new_time
+        self.prev_global_map = self.global_map.copy()
         if not done:
             self.update_agent_observation(agents_needing_decision)
         return self.observation, self.masked_action, rewards, done

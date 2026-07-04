@@ -68,17 +68,161 @@ class Critic(nn.Module):
 # GLOBAL STATE
 # =========================
 
+from helpers.frontier_finder import (
+    get_direction,
+    frontier_information_gain
+)
+
+
 def get_global_state(env):
 
-    return np.concatenate([
+    features = []
 
-        env.global_map.flatten(),
+    # ==========================================
+    # GLOBAL MAP FEATURES
+    # ==========================================
 
-        np.array(
-            env.ag_pos
-        ).flatten()
+    unknown_count = np.sum(env.global_map == -1)
+    features.append(unknown_count/ (h * w))
 
-    ])
+    # 3x3 unknown density
+    h, w = env.global_map.shape
+
+    cell_h = h // 3
+    cell_w = w // 3
+
+    for gy in range(3):
+        for gx in range(3):
+
+            y0 = gy * cell_h
+            y1 = h if gy == 2 else (gy + 1) * cell_h
+
+            x0 = gx * cell_w
+            x1 = w if gx == 2 else (gx + 1) * cell_w
+
+            section = env.global_map[y0:y1, x0:x1]
+
+            features.append(
+                np.sum(section == -1) / section.size
+            )
+
+    # ==========================================
+    # PATH INFORMATION
+    # ==========================================
+
+    path_lengths = [
+
+        len(path)
+        for path in env.ag_paths
+
+    ]
+
+    features.append(min(path_lengths))
+
+    features.extend(path_lengths)
+
+    # ==========================================
+    # AGENT FEATURES
+    # ==========================================
+
+    for i in range(env.ag_num):
+
+        x, y = env.ag_pos[i]
+
+        # ------------------------------
+        # Position
+        # ------------------------------
+
+        features.extend([x, y])
+
+        # ------------------------------
+        # Which 3x3 sector?
+        # ------------------------------
+
+        sector_x = min(2, int(x / cell_w))
+        sector_y = min(2, int(y / cell_h))
+
+        features.extend([
+            sector_x,
+            sector_y
+        ])
+
+        # ------------------------------
+        # Target direction
+        # ------------------------------
+
+        if env.ag_target[i] is not None:
+
+            dx, dy = get_direction(
+                env.ag_pos[i],
+                env.ag_target[i]
+            )
+
+        else:
+
+            dx, dy = 0, 0
+
+        features.extend([dx, dy])
+
+        # ------------------------------
+        # Frontier value
+        # ------------------------------
+
+        if env.ag_target[i] is not None:
+
+            gain = frontier_information_gain(
+                env.ag_target[i],
+                env.global_map
+            )
+
+        else:
+
+            gain = 0
+
+        features.append(gain)
+
+        # ------------------------------
+        # Frontier sector
+        # ------------------------------
+
+        if env.ag_target[i] is not None:
+
+            tx, ty = env.ag_target[i]
+
+            target_sector_x = min(
+                2,
+                int(tx / cell_w)
+            )
+
+            target_sector_y = min(
+                2,
+                int(ty / cell_h)
+            )
+
+        else:
+
+            target_sector_x = 0
+            target_sector_y = 0
+
+        features.extend([
+            target_sector_x,
+            target_sector_y
+        ])
+
+        # ------------------------------
+        # Distance to other agents
+        # ------------------------------
+
+        features.extend(
+            env.observation[i][
+                "other_agent_dijkstra"
+            ]
+        )
+
+    return np.array(
+        features,
+        dtype=np.float32
+    )
 
 
 # =========================
@@ -145,8 +289,15 @@ def train():
         input_dim=input_dim
     )
 
+    sample_state = get_global_state(env)
+
+    print(
+        "Critic input dim:",
+        len(sample_state)
+    )
+
     critic = Critic(
-        state_dim=W * H + AGENTS * 2
+        state_dim=len(sample_state)
     )
 
     actor_opt = optim.Adam(
