@@ -106,11 +106,12 @@ def reconstruct_path(parent, start, goal):
     return path
 
 
-def compute_frontier_value(fx, fy, occ):
+def compute_frontier_value(fx, fy, occ, ag_target):
     """
     Count unknown neighbors around a frontier.
     """
-    if occ[fx][fy] == 2: return -1 #if the frontier is on a friend path return the value to 1
+    if occ[fx][fy] == 2: return -2 #if the frontier is on a friend path return the value to 1
+    if (fx,fy) in ag_target: return -1
     value = 0
 
     width, height = occ.shape
@@ -237,7 +238,8 @@ def get_frontier_metrics(
         value = compute_frontier_value(
             fx,
             fy,
-            map_occ
+            map_occ,
+            ag_target
         )
 
         frontier_metrics.append({
