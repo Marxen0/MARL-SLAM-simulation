@@ -1,3 +1,4 @@
+from collections import deque
 import heapq
 import numpy as np
 from scipy import ndimage
@@ -175,6 +176,109 @@ def filter_reachable_frontiers(
             reachable_frontiers.append((fx, fy))
 
     return reachable_frontiers
+def cluster_frontiers(frontiers):
+    """
+    Group connected frontier cells and return
+    one representative center for each cluster.
+
+    Args:
+        frontiers:
+            [(x, y), ...]
+
+    Returns:
+        [(x, y), ...]
+    """
+
+    frontiers = set(map(tuple, frontiers))
+    visited = set()
+
+    cluster_centers = []
+
+    directions = [
+        (-1, -1), (-1, 0), (-1, 1),
+        ( 0, -1),          ( 0, 1),
+        ( 1, -1), ( 1, 0), ( 1, 1),
+    ]
+
+    for start in frontiers:
+
+        if start in visited:
+            continue
+
+        queue = deque([start])
+        visited.add(start)
+
+        cluster = []
+
+        while queue:
+
+            current = queue.popleft()
+            cluster.append(current)
+
+            cx, cy = current
+
+            for dx, dy in directions:
+
+                neighbor = (cx + dx, cy + dy)
+
+                if neighbor not in frontiers:
+                    continue
+
+                if neighbor in visited:
+                    continue
+
+                visited.add(neighbor)
+                queue.append(neighbor)
+
+        # Mean position
+        mean_x = int(np.mean([x for x, _ in cluster]))
+        mean_y = int(np.mean([y for _, y in cluster]))
+
+        # Pick actual frontier closest to mean
+        center = min(
+            cluster,
+            key=lambda p:
+                (p[0] - mean_x) ** 2 +
+                (p[1] - mean_y) ** 2
+        )
+
+        cluster_centers.append(center)
+
+    return cluster_centers
+def frontier_information_gain(
+    frontier,
+    occ,
+    radius=5
+):
+    """
+    Count unknown cells around a frontier.
+    """
+
+    x, y = frontier
+    value = 0
+
+    width, height = occ.shape
+
+    for dx in range(-radius, radius + 1):
+        for dy in range(-radius, radius + 1):
+
+            nx = x + dx
+            ny = y + dy
+
+            if not (0 <= nx < width):
+                continue
+
+            if not (0 <= ny < height):
+                continue
+
+            # Circular radius
+            if dx * dx + dy * dy > radius * radius:
+                continue
+
+            if occ[nx, ny] == -1:
+                value += 1
+
+    return value
 def get_frontier_metrics(
     reachable_frontiers,
     dist,
@@ -235,12 +339,7 @@ def get_frontier_metrics(
 
             closest_other_pos_dist = 999
 
-        value = compute_frontier_value(
-            fx,
-            fy,
-            map_occ,
-            ag_target
-        )
+        value = frontier_information_gain((fx,fy), map_occ)
 
         frontier_metrics.append({
             "coord": (fx, fy),
@@ -371,6 +470,22 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target, ag_num):
         )
         return obs, action_mask
     
+    clustered_frontiers = cluster_frontiers(reachable_frontiers)
+    if len(clustered_frontiers)==0:
+        frontier_features = []
+        action_mask = []
+        for _ in range(5):
+            frontier_features.append(
+                empty_frontier_feature(agent_idx, ag_num)
+            )
+            action_mask.append(False)
+
+        obs = build_observation(
+            other_agent_dijkstra=ag_dis_ag,
+            frontier_features=frontier_features
+        )
+        return obs, action_mask
+
     frontier_metrics = get_frontier_metrics(
         reachable_frontiers,
         dist,
@@ -510,232 +625,17 @@ def build_observation(
 
 if __name__ == "__main__":
 
-    # ----------------------------
-    # Test map
-    # ----------------------------
-    #
-    # X = wall
-    # . = free
-    #
-    #  0 1 2 3 4
-    #0 X X X X X
-    #1 X . . . X
-    #2 X . X . X
-    #3 X . . . X
-    #4 X X X X X
-    #
-    # Agent0 = (1,1)
-    # Agent1 = (3,3)
-    #
+    occ = np.zeros((10, 10), dtype=int)
 
-    occ = np.array([
-        [1, 1, 1, 1, 1],
-        [1, 0, 0, 0, 1],
-        [1, 0, 1, 0, 1],
-        [1, 0, 0, 0, 1],
-        [1, 1, 1, 1, 1],
-    ])
+    # Unknown region 1
+    occ[0:3, 7:10] = -1
 
-    ag_pos = np.array([
-        [1, 1],   # Agent 0
-        [3, 3],   # Agent 1
-    ])
-
-    # Pretend agent 1 targets (3,1)
-    ag_target = [
-        [],       # self (agent 0)
-        (3, 1)
-    ]
-
-    print("=" * 50)
-    print("DIJKSTRA TEST")
-    print("=" * 50)
-
-    dist, parent = dijkstra_all((1, 1), occ)
-
-    print("Distance to (3,3):", dist[(3, 3)])
-    print("Expected: 4")
-
-    path = reconstruct_path(
-        parent,
-        (1, 1),
-        (3, 3)
-    )
-
-    print("Path:")
-    print(path)
-
+    # Unknown region 2
+    occ[7:10, 0:3] = -1
+    agent_pos = [2,2]
+    print("Occupancy Grid:")
+    print(occ)
     print()
-
-    print("=" * 50)
-    print("EUCLIDEAN TEST")
-    print("=" * 50)
-
-    d = euclidean_distance_calculation(
-        (1, 1),
-        (3, 3)
-    )
-
-    print("Euclidean distance:", d)
-    print("Expected:", np.sqrt(8))
-
-    print()
-
-    print("=" * 50)
-    print("DIRECTION TEST")
-    print("=" * 50)
-
-    dx, dy = get_direction(
-        (1, 1),
-        (3, 3)
-    )
-
-    print("Direction:", (dx, dy))
-    print("Expected: (2,2)")
-
-    print()
-
-    print("=" * 50)
-    print("OVERLAP TEST")
-    print("=" * 50)
-
-    path_a = [
-        (1, 1),
-        (1, 2),
-        (1, 3),
-        (2, 3),
-    ]
-
-    path_b = [
-        (1, 1),
-        (1, 2),
-        (2, 2),
-        (3, 2),
-    ]
-
-    overlap = dijkstra_overlap_percentage(
-        path_a,
-        path_b
-    )
-
-    print("Overlap:", overlap)
-    print("Expected: 0.5")
-
-    print()
-
-    print("=" * 50)
-    print("FRONTIER TEST")
-    print("=" * 50)
-
-    # Unknown area to create frontiers
-    occ_frontier = np.array([
-        [1, 1, 1, 1, 1, 1],
-        [1, 0, 0, -1, -1, 1],
-        [1, 0, 0, -1, -1, 1],
-        [1, 0, 0,  0,  0, 1],
-        [1, 1, 1,  1,  1, 1],
-    ])
-
-    frontiers = get_frontiers(occ_frontier)
-
-    print("Frontiers found:")
-    print(frontiers)
-
-    print()
-
-    print("=" * 50)
-    print("FULL OBSERVATION TEST")
-    print("=" * 50)
-
-    ag_pos = np.array([
-        [1, 1],   # self
-        [3, 3],   # other agent
-    ])
-
-    ag_target = [
-        [2, 1],       # self has no target yet
-        (3, 1)    # agent 1 target
-    ]
-
-    obs = observation(
-        agent_idx=0,
-        ag_pos=ag_pos,
-        ag_occ=occ_frontier,
-        ag_target=ag_target
-    )
-
-    print("Observation:")
-    print(obs)
-
-    print()
-
-    print("=" * 50)
-    print("CHECK FRONTIER FEATURES")
-    print("=" * 50)
-
-    for i, frontier in enumerate(obs["frontiers"]):
-
-        print(f"\nFrontier {i}")
-
-        print("Position:",
-              frontier["frontier_position"])
-
-        print("Value:",
-              frontier["frontier_value"])
-
-        print("Self direction:",
-              (frontier["self_dx"],
-               frontier["self_dy"]))
-
-        print("Self dijkstra:",
-              frontier["self_dijkstra"])
-
-        print("Cached path:")
-        print(frontier["cached_paht"])
-
-        print("\nOther agents:")
-
-        for j, agent in enumerate(frontier["agents"]):
-
-            print(f"Agent {j}")
-
-            print(
-                "target_to_frontier_euclidean:",
-                agent["target_to_frontier_euclidean"]
-            )
-
-            print(
-                "agent_to_frontier_euclidean:",
-                agent["agent_to_frontier_euclidean"]
-            )
-
-            print(
-                "dijkstra_sum_ag:",
-                agent["dijkstra_sum_ag"]
-            )
-
-            print(
-                "dijkstra_overlap_percent_ag:",
-                agent["dijkstra_overlap_percent_ag"]
-            )
-
-            print(
-                "ag_target_dir:",
-                (
-                    agent["ag_target_dx"],
-                    agent["ag_target_dy"]
-                )
-            )
-
-            print(
-                "ag_frontier_dir:",
-                (
-                    agent["ag_to_frontier_dx"],
-                    agent["ag_to_frontier_dy"]
-                )
-            )
-
-    print()
-    print("=" * 50)
-    print("ALL TESTS FINISHED")
-    print("=" * 50)
+    obs, _ = observation(0, [agent_pos], occ, [[2,2]], 1)
+    print(obs["frontiers"][0]["frontier_value"])
+    print(obs["frontiers"][1]["frontier_value"])
