@@ -8,7 +8,7 @@ rewards = []
 steps = []
 
 # Read CSV
-with open("training_log9.csv", "r") as f:
+with open("Version 1 Training/training_log.csv", "r") as f:
     reader = csv.reader(f)
 
     for row in reader:

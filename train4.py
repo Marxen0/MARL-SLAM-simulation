@@ -93,7 +93,7 @@ def train():
     W = 50
     H = 50
 
-    EPISODES = 200
+    EPISODES = 500
 
     GAMMA = 0.99
 

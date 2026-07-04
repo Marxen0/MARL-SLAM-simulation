@@ -118,7 +118,7 @@ def test_random():
             # ==========================================
             # LOGGING
             # ==========================================
-            print(
+            if ep%10==0:print(
                 f"Episode {ep} | "
                 f"Reward: {total_reward:.2f} | "
                 f"Steps: {env.time} | "
