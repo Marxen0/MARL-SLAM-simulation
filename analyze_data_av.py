@@ -10,7 +10,7 @@ steps = []
 # =====================
 # READ CSV
 # =====================
-with open("training_log9.csv", "r") as f:
+with open("Version 2 Training/random_test.csv", "r") as f:
 
     reader = csv.reader(f)
 

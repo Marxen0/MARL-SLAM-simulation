@@ -98,7 +98,7 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-    VERSION = "Version 1 Training"
+    VERSION = "Version 2 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,

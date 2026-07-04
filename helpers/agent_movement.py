@@ -50,7 +50,7 @@ def walk_agent(world, ag_occ, ray_count, current_step_paths):
             continue
 
         updated_ag_pos[agent_idx] = [x, y]
-        if ag_occ[agent_idx][x][y] == 2: walk_penalty[agent_idx] = 0
+        if ag_occ[agent_idx][x][y] == 2: walk_penalty[agent_idx] = -0.1
         # The agent always knows its own position is free
         updated_ag_occ[agent_idx, x, y] = 0
 

@@ -185,6 +185,8 @@ class environment():
         done = False
         new_time = 0
         agents_needing_decision = []
+        proximity_reward = np.zeros(self.ag_num)
+        final_walk_penalty = np.zeros(self.ag_num)
         while True:
             current_step_paths = []
             for agent_idx in range(self.ag_num):
@@ -197,6 +199,7 @@ class environment():
             
             # Pass single-step coordinates to your walk_agent helper
             self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, current_step_paths)
+            final_walk_penalty = final_walk_penalty + np.asarray(walk_penalty)
             new_time += 1
             
             self.global_map = combine_occ(self.ag_occ)
@@ -210,6 +213,7 @@ class environment():
                     self.ag_target,
                 )
                 time.sleep(0.1)
+            proximity_reward = proximity_reward + np.asarray(proximity_penalty(self.ag_pos))
                 
             # BREAK CONDITION: Check if any agent has completely finished their path
             agents_needing_decision = [i for i in range(self.ag_num) if len(self.ag_paths[i]) == 0]
@@ -217,11 +221,8 @@ class environment():
                 break
 
         # 3. Rewards tracking
-        ag_dis_ag = [self.observation[i]["other_agent_dijkstra"] for i in range(self.ag_num)]
-        proximity_rewards = np.array(proximity_penalty_dijkstra(ag_dis_ag))
         time_rewards = np.full(self.ag_num, -new_time * 0.1)
-
-        rewards =  proximity_rewards + time_rewards + np.array(walk_penalty)
+        rewards =  proximity_reward + time_rewards + final_walk_penalty
         self.time += new_time
         if not done:
             self.update_agent_observation(agents_needing_decision)
