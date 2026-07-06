@@ -109,7 +109,7 @@ def test():
 
     actor = Actor(input_dim)
 
-    VERSION = "Version 6 Training"
+    VERSION = "Version 7 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,

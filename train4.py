@@ -242,7 +242,7 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-    VERSION = "Version 6 Training"
+    VERSION = "Version 7-1 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -307,7 +307,7 @@ def train():
 
     critic_opt = optim.Adam(
         critic.parameters(),
-        lr=1e-3
+        lr=5e-4
     )
 
     if RENDER:
@@ -494,8 +494,8 @@ def train():
         # A2C UPDATE
         # ==================================
 
-        actor_losses = []
-
+        advantages = []
+        actor_log_probs = []
         critic_losses = []
 
         for t in trajectory:
@@ -511,7 +511,6 @@ def train():
                 )
 
             reward = t["reward"]
-
             done = t["done"]
 
             target = reward + (
@@ -524,24 +523,56 @@ def train():
 
             advantage = target - value
 
-            actor_loss = (
+            advantages.append(
+                advantage
+            )
 
-                -t["log_prob"]
+            actor_log_probs.append(
+                t["log_prob"]
+            )
+
+            critic_losses.append(
+                advantage.pow(2)
+            )
+
+
+        # ==================================
+        # NORMALIZE ADVANTAGES
+        # ==================================
+
+        advantages = torch.stack(
+            advantages
+        ).squeeze()
+
+        advantages = (
+
+            advantages
+            - advantages.mean()
+
+        ) / (
+
+            advantages.std() + 1e-8
+        )
+
+
+        # ==================================
+        # ACTOR LOSS
+        # ==================================
+
+        actor_losses = []
+
+        for log_prob, advantage in zip(
+            actor_log_probs,
+            advantages
+        ):
+
+            actor_losses.append(
+
+                -log_prob
                 * advantage.detach()
 
             )
 
-            critic_loss = advantage.pow(
-                2
-            )
-
-            actor_losses.append(
-                actor_loss
-            )
-
-            critic_losses.append(
-                critic_loss
-            )
 
         loss_actor = torch.stack(
             actor_losses
@@ -558,14 +589,23 @@ def train():
 
         )
 
-        actor_opt.zero_grad()
 
+        actor_opt.zero_grad()
         critic_opt.zero_grad()
 
         loss.backward()
 
-        actor_opt.step()
+        torch.nn.utils.clip_grad_norm_(
+            actor.parameters(),
+            0.5
+        )
 
+        torch.nn.utils.clip_grad_norm_(
+            critic.parameters(),
+            0.5
+        )
+
+        actor_opt.step()
         critic_opt.step()
 
         # ==================================
