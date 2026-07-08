@@ -240,13 +240,13 @@ class environment():
         # Count unknown cells
         prev_unknown = np.sum(self.prev_global_map == -1)
         curr_unknown = np.sum(self.global_map == -1)
-
+        proximity_penal = proximity_penalty_dijkstra([self.observation[i]["other_agent_dijkstra"] for i in range(self.ag_num)])
         # Positive if we explored new cells
         exploration_reward = prev_unknown - curr_unknown
-        rewards =  time_rewards + (exploration_reward/(-time_rewards))
+        rewards =  exploration_reward + (time_rewards * 2) + (proximity_penal * 1)
 
         self.time += new_time
         self.prev_global_map = self.global_map.copy()
         if not done:
             self.update_agent_observation()
-        return self.observation, self.masked_action, rewards, done
+        return self.observation, self.masked_action, rewards, done, exploration_reward

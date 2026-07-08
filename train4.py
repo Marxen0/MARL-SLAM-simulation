@@ -72,39 +72,58 @@ from helpers.frontier_finder import (
     get_direction,
     frontier_information_gain
 )
+def compute_unknown_density_features(global_map, unknown_value=-1, grid_size=3):
+    """
+    Compute unknown-cell density features.
 
+    Returns:
+        List containing:
+        - global unknown density
+        - unknown density for each grid section (row-major order)
+    """
+    features = []
 
-def get_global_state(env):
+    h, w = global_map.shape
+
+    # Global unknown density
+    unknown_count = np.sum(global_map == unknown_value)
+    features.append(unknown_count / (h * w))
+
+    cell_h = h // grid_size
+    cell_w = w // grid_size
+
+    for gy in range(grid_size):
+        for gx in range(grid_size):
+            y0 = gy * cell_h
+            y1 = h if gy == grid_size - 1 else (gy + 1) * cell_h
+
+            x0 = gx * cell_w
+            x1 = w if gx == grid_size - 1 else (gx + 1) * cell_w
+
+            section = global_map[y0:y1, x0:x1]
+            features.append(np.mean(section == unknown_value))
+
+    return features
+
+def get_global_state(env, grid_size = 3, unknown_value =-1):
 
     features = []
 
     # ==========================================
     # GLOBAL MAP FEATURES
     # ==========================================
+    global_map = env.global_map
+    h, w = global_map.shape
 
-    unknown_count = np.sum(env.global_map == -1)
+    # Global unknown density
+    unknown_count = np.sum(global_map == unknown_value)
+    features.append(unknown_count / (h * w))
 
-    # 3x3 unknown density
-    h, w = env.global_map.shape
-    features.append(unknown_count/ (h * w))
-
-    cell_h = h // 3
-    cell_w = w // 3
-
-    for gy in range(3):
-        for gx in range(3):
-
-            y0 = gy * cell_h
-            y1 = h if gy == 2 else (gy + 1) * cell_h
-
-            x0 = gx * cell_w
-            x1 = w if gx == 2 else (gx + 1) * cell_w
-
-            section = env.global_map[y0:y1, x0:x1]
-
-            features.append(
-                np.sum(section == -1) / section.size
-            )
+    cell_h = h // grid_size
+    cell_w = w // grid_size
+    features = compute_unknown_density_features(global_map, unknown_value, grid_size)
+    for i in range(env.ag_num):
+        features.extend(compute_unknown_density_features(env.ag_occ[i], unknown_value, grid_size))
 
     # ==========================================
     # PATH INFORMATION
@@ -117,9 +136,14 @@ def get_global_state(env):
 
     ]
 
-    features.append(min(path_lengths))
+    max_dist = h + w
 
-    features.extend(path_lengths)
+    features.append(min(path_lengths) / max_dist)
+
+    features.extend([
+        p / max_dist
+        for p in path_lengths
+])
 
     # ==========================================
     # AGENT FEATURES
@@ -133,7 +157,10 @@ def get_global_state(env):
         # Position
         # ------------------------------
 
-        features.extend([x, y])
+        features.extend([
+            x / w,
+            y / h
+        ])
 
         # ------------------------------
         # Which 3x3 sector?
@@ -179,7 +206,9 @@ def get_global_state(env):
 
             gain = 0
 
-        features.append(gain)
+        features.append(
+            gain / (h * w)
+        )
 
         # ------------------------------
         # Frontier sector
@@ -213,11 +242,10 @@ def get_global_state(env):
         # Distance to other agents
         # ------------------------------
 
-        features.extend(
-            env.observation[i][
-                "other_agent_dijkstra"
-            ]
-        )
+        features.extend([
+            d / (h + w)
+            for d in env.observation[i]["other_agent_dijkstra"]
+        ])
 
     return np.array(
         features,
@@ -242,7 +270,7 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-    VERSION = "Version 7-1 Training"
+    VERSION = "Version 9 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -323,9 +351,10 @@ def train():
     # ==========================================
     # EPISODES
     # ==========================================
-
+    
     for ep in range(EPISODES):
-
+        episode_exploration = 0
+        episode_decission = 0
         obs, action_masks = env.reset()
 
         done = False
@@ -430,9 +459,11 @@ def train():
             # ENV STEP
             # ==================================
 
-            next_obs, next_masks, rewards, done = env.step(
+            next_obs, next_masks, rewards, done, exploration_reward = env.step(
                 actions
             )
+            episode_decission += 1
+            episode_exploration += exploration_reward
 
             if RENDER:
 
@@ -618,7 +649,10 @@ def train():
 
                 f"Episode {ep} | "
                 f"Reward: {ep_reward:.2f} | "
-                f"Steps: {env.time}"
+                f"Steps: {env.time} |"
+                f"exploration Reward : {exploration_reward} |"
+                f"episode exploration : {episode_exploration} |"
+                f"episode decssion : {episode_decission}"
 
             )
 

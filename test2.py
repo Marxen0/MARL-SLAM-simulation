@@ -109,7 +109,7 @@ def test():
 
     actor = Actor(input_dim)
 
-    VERSION = "Version 7 Training"
+    VERSION = "Version 9 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -198,7 +198,7 @@ def test():
         # ==========================================
         # STEP
         # ==========================================
-        obs, action_mask, rewards, done = env.step(
+        obs, action_mask, rewards, done, _ = env.step(
             actions
         )
 

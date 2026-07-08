@@ -176,14 +176,18 @@ def filter_reachable_frontiers(
             reachable_frontiers.append((fx, fy))
 
     return reachable_frontiers
-def cluster_frontiers(frontiers):
+def cluster_frontiers(frontiers, max_cluster_size=None):
     """
-    Group connected frontier cells and return
-    one representative center for each cluster.
+    Group connected frontier cells and return one representative
+    center for each cluster.
 
     Args:
         frontiers:
             [(x, y), ...]
+
+        max_cluster_size:
+            Maximum number of cells allowed in a cluster.
+            None -> no limit.
 
     Returns:
         [(x, y), ...]
@@ -215,6 +219,13 @@ def cluster_frontiers(frontiers):
             current = queue.popleft()
             cluster.append(current)
 
+            # Stop growing this cluster if it reaches the limit
+            if (
+                max_cluster_size is not None
+                and len(cluster) >= max_cluster_size
+            ):
+                continue
+
             cx, cy = current
 
             for dx, dy in directions:
@@ -234,7 +245,6 @@ def cluster_frontiers(frontiers):
         mean_x = int(np.mean([x for x, _ in cluster]))
         mean_y = int(np.mean([y for _, y in cluster]))
 
-        # Pick actual frontier closest to mean
         center = min(
             cluster,
             key=lambda p:
@@ -470,7 +480,7 @@ def observation(agent_idx, ag_pos, ag_occ, ag_target, ag_num):
         )
         return obs, action_mask
     
-    clustered_frontiers = cluster_frontiers(reachable_frontiers)
+    clustered_frontiers = cluster_frontiers(reachable_frontiers, 4)
     if len(clustered_frontiers)==0:
         frontier_features = []
         action_mask = []

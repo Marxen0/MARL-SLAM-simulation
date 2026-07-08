@@ -198,7 +198,7 @@ def proximity_penalty(ag_pos):
     return rewards
 def proximity_penalty_dijkstra(
     ag_dis_ag,
-    min_distance=5,
+    min_distance=3,
     penalty_scale=0.1
 ):
     """
@@ -223,7 +223,7 @@ def proximity_penalty_dijkstra(
         List of rewards/penalties for each agent.
     """
 
-    rewards = []
+    rewards = 0
 
     for distances in ag_dis_ag:
 
@@ -241,6 +241,6 @@ def proximity_penalty_dijkstra(
                     min_distance - d
                 ) * penalty_scale
 
-        rewards.append(penalty)
+        rewards += penalty
 
     return rewards
