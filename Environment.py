@@ -138,9 +138,18 @@ class environment():
         self.observation = {}
         self.masked_action = {}
         self.global_map = np.full((self.world_widht, self.world_height), -1)
-        self.prev_global_map = self.global_map.copy()
         self.ag_occ, self.ag_pos, walk_penalty = walk_agent(self.world, self.ag_occ, self.ag_ray_count, start_pos)
+        self.prev_ag_occ = [
+            self.ag_occ[i].copy()
+            for i in range(self.ag_num)
+        ]
+        self.global_map = combine_occ(self.ag_occ)
+        self.prev_global_maps = [
+            self.global_map.copy()
+            for _ in range(self.ag_num)
+        ]
         self.update_agent_observation()
+        self.ag_time_act = np.zeros((self.ag_num))
       #  visualize_occ(self.ag_occ[0])
         return self.observation, self.masked_action
     def update_agent_observation(self, agents=None):
@@ -182,7 +191,9 @@ class environment():
                 # CRITICAL: Force convert the cached path to a list of coordinates
                 # shapes should look like: [(x1,y1), (x2,y2), ...]
                 self.ag_paths[agent_idx] = self.observation[agent_idx]["frontiers"][chosen_action]["cached_path"]
-                
+                self.ag_time_act[agent_idx] = len(self.ag_paths[agent_idx])
+                self.prev_global_maps[agent_idx] = self.global_map.copy()
+                self.prev_ag_occ[agent_idx] = self.ag_occ[agent_idx].copy()
                 # Update its target profile matrix
                 self.ag_past_target[agent_idx] = self.ag_target[agent_idx]
                 self.ag_target[agent_idx] = self.observation[agent_idx]["frontiers"][chosen_action]["frontier_position"]
@@ -239,22 +250,55 @@ class environment():
             if len(agents_needing_decision) > 0:
                 break
 
+        # 3. Rewards tracking
+        #time_rewards = -new_time 
+        rewards = np.zeros(self.ag_num)
+
+        for agent in agents_needing_decision:
+
+            rewards[agent] = compute_reward(
+                agent,
+                self.prev_global_maps[agent],
+                self.ag_occ,
+                self.global_map,
+                self.ag_time_act[agent]
+            )
 
         self.time += new_time
         if not done:
             self.update_agent_observation()
-        # 3. Rewards tracking
-        time_rewards = -new_time 
-        # Count unknown cells
-        prev_unknown = np.sum(self.prev_global_map == -1)
-        curr_unknown = np.sum(self.global_map == -1)
-        proximity_penal = proximity_penalty_dijkstra([self.observation[i]["other_agent_dijkstra"] for i in range(self.ag_num)])
-        # Positive if we explored new cells
-        exploration_reward = prev_unknown - curr_unknown
-        rewards =  exploration_reward / (time_rewards*1)
-        self.prev_global_map = self.global_map.copy()
-        return self.observation, self.masked_action, rewards, done, exploration_reward
-    
+        return self.observation, self.masked_action, rewards, done, agents_needing_decision
+def compute_reward(
+    agent_id,
+    prev_global_map,
+    agents_occ,
+    curr_global_map,
+    time_taken,
+):
+    other_occ = np.delete(
+        agents_occ,
+        agent_id,
+        axis=0
+    )
+
+    without_me = combine_occ(
+        np.concatenate(
+            (
+                prev_global_map[np.newaxis],
+                other_occ
+            ),
+            axis=0
+        )
+    )
+
+    reward = (
+        np.sum(without_me == -1)
+        - np.sum(curr_global_map == -1)
+    )
+
+    reward -= 1 * time_taken
+
+    return reward
 def encode_agent_grid_positions(
     agent_positions,
     agent_idx,

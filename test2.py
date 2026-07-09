@@ -16,6 +16,9 @@ def observation_to_tensor(obs, current_time):
 
     # Other agent dijkstra
     features.extend(obs["other_agent_dijkstra"])
+    max_value = np.max(obs["other_estimate_occ"])
+    if max_value > 0:
+        obs["other_estimate_occ"] /= max_value
     features.extend(
         obs["other_estimate_occ"].ravel() ### HOW DO I ADD THIS UPDATE THIS
     )
@@ -118,7 +121,7 @@ def test():
 
     actor = Actor(input_dim)
 
-    VERSION = "Version 11 Training"
+    VERSION = "Version 21 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -126,9 +129,9 @@ def test():
     )
     actor.load_state_dict(
         torch.load(
-            f"{MODEL_FOLDER}/actor_final.pth",
+            f"{MODEL_FOLDER}/checkpoint_2500.pth",
             map_location="cpu"
-        )
+        )["actor_state_dict"]
     )
 
     actor.eval()

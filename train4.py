@@ -72,7 +72,7 @@ from helpers.frontier_finder import (
     get_direction,
     frontier_information_gain
 )
-def compute_unknown_density_features(global_map, unknown_value=-1, grid_size=3):
+def compute_unknown_density_features(global_map, unknown_value=-1, grid_size=4):
     """
     Compute unknown-cell density features.
 
@@ -105,7 +105,7 @@ def compute_unknown_density_features(global_map, unknown_value=-1, grid_size=3):
 
     return features
 
-def get_global_state(env, grid_size = 12, unknown_value =-1):
+def get_global_state(env, current_agent, grid_size=4, unknown_value=-1):
 
     features = []
 
@@ -122,8 +122,13 @@ def get_global_state(env, grid_size = 12, unknown_value =-1):
     cell_h = h // grid_size
     cell_w = w // grid_size
     features = compute_unknown_density_features(global_map, unknown_value, grid_size)
+    agent_order = [current_agent]
+
     for i in range(env.ag_num):
-        features.extend(compute_unknown_density_features(env.ag_occ[i], unknown_value, grid_size))
+
+        if i != current_agent:
+
+            agent_order.append(i)
 
     # ==========================================
     # PATH INFORMATION
@@ -149,7 +154,7 @@ def get_global_state(env, grid_size = 12, unknown_value =-1):
     # AGENT FEATURES
     # ==========================================
 
-    for i in range(env.ag_num):
+    for i in agent_order:
 
         x, y = env.ag_pos[i]
 
@@ -270,7 +275,7 @@ def train():
     GAMMA = 0.99
 
     RENDER = False
-    VERSION = "Version 17 Training"
+    VERSION = "Version 23 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -291,7 +296,7 @@ def train():
         RAYS,
         W,
         H,
-        estimate_grid_size=12
+        estimate_grid_size=4
     )
 
     # --------------------------------
@@ -318,7 +323,7 @@ def train():
         input_dim=input_dim
     )
 
-    sample_state = get_global_state(env)
+    sample_state = get_global_state(env,0)
 
     print(
         "Critic input dim:",
@@ -361,17 +366,15 @@ def train():
         done = False
 
         trajectory = []
+        pending = [None for _ in range(env.ag_num)]
 
         ep_reward = 0
 
         while not done:
 
             agents_need_action = [
-
                 i
-
                 for i in range(env.ag_num)
-
                 if len(env.ag_paths[i]) == 0
             ]
 
@@ -380,8 +383,6 @@ def train():
                 -1,
                 dtype=int
             )
-
-            log_probs = {}
 
             # ==================================
             # ACTION SELECTION
@@ -400,27 +401,16 @@ def train():
 
                 logits = actor(o)
 
-                # -----------------------------
-                # MASK INVALID ACTIONS
-                # -----------------------------
-
                 for a in range(5):
 
                     if not action_masks[i][a]:
 
                         logits[0, a] = -float("inf")
 
-                # Safety
+                if torch.all(torch.isinf(logits)):
 
-                if torch.all(
-                    torch.isinf(logits)
-                ):
-
-                    actions[i] = 0
-
-                    log_probs[i] = torch.tensor(
-                        0.0
-                    )
+                    action = torch.tensor(0)
+                    log_prob = torch.tensor(0.0)
 
                 else:
 
@@ -429,42 +419,41 @@ def train():
                     )
 
                     action = dist.sample()
+                    log_prob = dist.log_prob(action)
 
-                    actions[i] = action.item()
-
-                    log_probs[i] = dist.log_prob(
-                        action
+                actions[i] = action.item()
+                if pending[i] is not None:
+                    raise RuntimeError(
+                        f"Pending transition for agent {i} already exists."
                     )
+                pending[i] = {
+
+                    "agent": i,
+
+                    "obs": torch.FloatTensor(
+                        encoded_obs
+                    ),
+
+                    "global_state": torch.FloatTensor(
+                        get_global_state(env, i)
+                    ).unsqueeze(0),
+
+                    "log_prob": log_prob,
+
+                    "action": action.item()
+                }
+            
             # ==================================
-            # UPDATE PATHS AND TARGETS
-            # ==================================
-
-            for i in agents_need_action:
-
-                action = actions[i]
-
-                chosen_frontier = obs[i]["frontiers"][action]
-
-                env.ag_paths[i] = chosen_frontier[
-                    "cached_path"
-                ]
-
-                env.ag_target[i] = chosen_frontier[
-                    "frontier_position"
-                ]
-            global_state = torch.FloatTensor(
-                get_global_state(env)
-            ).unsqueeze(0)
-
-            # ==================================
-            # ENV STEP
+            # ENVIRONMENT STEP
             # ==================================
 
-            next_obs, next_masks, rewards, done, exploration_reward = env.step(
-                actions
-            )
-            episode_decission += 1
-            episode_exploration += exploration_reward
+            (
+                next_obs,
+                next_masks,
+                rewards,
+                done,
+                finished_agents,
+             )= env.step(actions)
 
             if RENDER:
 
@@ -475,57 +464,39 @@ def train():
 
                 time.sleep(0.1)
 
-            reward = np.sum(
-                rewards
-            )
+            for agent in finished_agents:
 
-            ep_reward += reward
+                if pending[agent] is None:
+                    continue
 
-            next_global_state = torch.FloatTensor(
-                get_global_state(env)
-            ).unsqueeze(0)
+                transition = pending[agent]
 
-            # ==================================
-            # STORE TRANSITIONS
-            # ==================================
+                transition["next_global_state"] = torch.FloatTensor(
+                    get_global_state(
+                        env,
+                        current_agent=agent
+                    )
+                ).unsqueeze(0)
 
-            for i in agents_need_action:
+                transition["reward"] = rewards[agent]
 
-                encoded_obs = encode_observation(
-                    obs[i],
-                    env.time
+                transition["done"] = done
+
+                trajectory.append(
+                    transition
                 )
 
-                trajectory.append({
+                pending[agent] = None
 
-                    "obs":
-                        torch.FloatTensor(
-                            encoded_obs
-                        ),
+                ep_reward += rewards[agent]
 
-                    "global_state":
-                        global_state,
-
-                    "next_global_state":
-                        next_global_state,
-
-                    "log_prob":
-                        log_probs[i],
-
-                    "reward":
-                        reward,
-
-                    "done":
-                        done
-                })
-
-            obs = next_obs
-            action_masks = next_masks
-
+        obs = next_obs
+        action_masks = next_masks
         # ==================================
         # A2C UPDATE
         # ==================================
-
+        if len(trajectory) == 0:
+            continue
         advantages = []
         actor_log_probs = []
         critic_losses = []
@@ -567,29 +538,22 @@ def train():
                 advantage.pow(2)
             )
 
-
-        # ==================================
-        # NORMALIZE ADVANTAGES
-        # ==================================
-
         advantages = torch.stack(
             advantages
         ).squeeze()
 
-        advantages = (
+        if len(advantages.shape) > 0 and advantages.numel() > 1:
 
-            advantages
-            - advantages.mean()
+            advantages = (
 
-        ) / (
+                advantages
+                - advantages.mean()
 
-            advantages.std() + 1e-8
-        )
+            ) / (
 
-
-        # ==================================
-        # ACTOR LOSS
-        # ==================================
+                advantages.std()
+                + 1e-8
+            )
 
         actor_losses = []
 
@@ -605,7 +569,6 @@ def train():
 
             )
 
-
         loss_actor = torch.stack(
             actor_losses
         ).mean()
@@ -620,7 +583,6 @@ def train():
             + 0.5 * loss_critic
 
         )
-
 
         actor_opt.zero_grad()
         critic_opt.zero_grad()
@@ -651,7 +613,6 @@ def train():
                 f"Episode {ep} | "
                 f"Reward: {ep_reward:.2f} | "
                 f"Steps: {env.time} |"
-                f"exploration Reward : {exploration_reward} |"
                 f"episode exploration : {episode_exploration} |"
                 f"episode decssion : {episode_decission}"
 

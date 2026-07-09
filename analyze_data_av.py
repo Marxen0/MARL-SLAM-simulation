@@ -10,19 +10,40 @@ steps = []
 # =====================
 # READ CSV
 # =====================
-with open("Version 9 Training/training_log.csv", "r") as f:
+EPISODE_START = 1000
+EPISODE_END = 5000      # Set to None to read until the end
+
+with open("Version 23 Training/training_log.csv", "r") as f:
 
     reader = csv.reader(f)
 
-    for row in reader:
+    first_row = next(reader)
+
+    def process_row(row):
+        if len(row) < 3:
+            return
 
         episode = int(row[0])
+
+        if episode < EPISODE_START:
+            return
+
+        if EPISODE_END is not None and episode > EPISODE_END:
+            return
 
         episodes.append(episode)
         rewards.append(float(row[1]))
         steps.append(int(row[2]))
 
+    try:
+        process_row(first_row)
 
+    except ValueError:
+        # First row is a header
+        pass
+
+    for row in reader:
+        process_row(row)
 # =====================
 # MOVING AVERAGE
 # =====================
