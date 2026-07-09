@@ -1,7 +1,7 @@
 import numpy as np
 # Import your standalone helper functions from the helpers package
 from helpers.map_generator import create_house, OccupancyViewer
-from helpers.frontier_finder import observation
+from helpers.frontier_finder import observation, update_agent_density
 # Tambahkan import ini di bagian atas file environment Anda
 from helpers.agent_movement import walk_agent, check_done, check_agent_movement, proximity_penalty, proximity_penalty_dijkstra
 from collections import deque
@@ -102,8 +102,9 @@ def combine_occ(ag_occ):
     
     return global_map
 class environment():
-    def __init__(self, agent_num, agent_ray_count, world_widht, world_height, render=False):
+    def __init__(self, agent_num, agent_ray_count, world_widht, world_height, estimate_grid_size=3, render=False):
         self.render = render
+        self.Est_grid_size = estimate_grid_size
         self.world_widht = world_widht
         self.world_height = world_height
         self.world = np.zeros((self.world_widht, self.world_height))
@@ -124,8 +125,9 @@ class environment():
         self.seed = seed
         self.world = create_house(self.world_widht, self.world_height, self.seed)
 
-        
+        self.est_grid = np.zeros((self.ag_num, self.Est_grid_size, self.Est_grid_size))
         start_pos = get_start_positions(self.world, self.ag_num)
+        self.ag_past_target = start_pos
         self.ag_pos = list(start_pos)
         self.ag_target = start_pos
         self.ag_occ = np.full((self.ag_num, self.world_widht, self.world_height), -1)
@@ -150,7 +152,9 @@ class environment():
 
             self.observation[agent] = obs
             self.masked_action[agent] = mask
-
+            self.observation[agent]["other_estimate_occ"] = self.est_grid
+            self.observation[agent]["agents_pos"] = encode_agent_grid_positions(self.ag_pos, agent, self.world_widht, self.world_height, self.Est_grid_size)
+            self.observation[agent]["agents_target_pos"] = encode_agent_grid_positions(self.ag_target, agent, self.world_widht, self.world_height, self.Est_grid_size)
         return self.observation, self.masked_action
     def agent_observation(self, agent):
         agent_obs, agent_mask = observation(agent, self.ag_pos, self.ag_occ[agent], self.ag_target, self.ag_num)
@@ -180,8 +184,9 @@ class environment():
                 self.ag_paths[agent_idx] = self.observation[agent_idx]["frontiers"][chosen_action]["cached_path"]
                 
                 # Update its target profile matrix
+                self.ag_past_target[agent_idx] = self.ag_target[agent_idx]
                 self.ag_target[agent_idx] = self.observation[agent_idx]["frontiers"][chosen_action]["frontier_position"]
-
+                update_agent_density(agent_idx,self.ag_past_target, self.ag_target, self.est_grid, self.world_widht, self.world_height, self.Est_grid_size)
                 if self.render and agent_idx == 0:
                     to_render = [self.observation[0]["frontiers"][i]["frontier_position"] for i in range(5)]
                     self.viewer.render(
@@ -189,7 +194,6 @@ class environment():
                     self.ag_pos,
                     to_render)
                     time.sleep(0.5)
-                    print(self.observation[0]["frontiers"][actions[0]])
         # 2. Environment Simulation Loop
         done = False
         new_time = 0
@@ -235,6 +239,10 @@ class environment():
             if len(agents_needing_decision) > 0:
                 break
 
+
+        self.time += new_time
+        if not done:
+            self.update_agent_observation()
         # 3. Rewards tracking
         time_rewards = -new_time 
         # Count unknown cells
@@ -243,10 +251,73 @@ class environment():
         proximity_penal = proximity_penalty_dijkstra([self.observation[i]["other_agent_dijkstra"] for i in range(self.ag_num)])
         # Positive if we explored new cells
         exploration_reward = prev_unknown - curr_unknown
-        rewards =  exploration_reward + (time_rewards * 2) + (proximity_penal * 1)
-
-        self.time += new_time
+        rewards =  exploration_reward / (time_rewards*1)
         self.prev_global_map = self.global_map.copy()
-        if not done:
-            self.update_agent_observation()
         return self.observation, self.masked_action, rewards, done, exploration_reward
+    
+def encode_agent_grid_positions(
+    agent_positions,
+    agent_idx,
+    world_width,
+    world_height,
+    grid_size=3,
+):
+    """
+    Encode the grid locations of the current agent and all other agents.
+
+    Parameters
+    ----------
+    agent_positions : ndarray
+        Shape = (num_agents, 2)
+
+    agent_idx : int
+        Agent whose observation we are building.
+
+    world_width : int
+
+    world_height : int
+
+    grid_size : int
+
+    Returns
+    -------
+    list
+        [
+            my_gx, my_gy,
+            other1_gx, other1_gy,
+            other2_gx, other2_gy,
+            ...
+        ]
+    """
+
+    features = []
+
+    cell_w = world_width / grid_size
+    cell_h = world_height / grid_size
+
+    # ------------------------
+    # Our position
+    # ------------------------
+
+    x, y = agent_positions[agent_idx]
+
+    my_gx = min(grid_size - 1, int(x / cell_w))
+    my_gy = min(grid_size - 1, int(y / cell_h))
+
+    features.extend([my_gx, my_gy])
+
+    # ------------------------
+    # Other agents
+    # ------------------------
+
+    for i, (x, y) in enumerate(agent_positions):
+
+        if i == agent_idx:
+            continue
+
+        gx = min(grid_size - 1, int(x / cell_w))
+        gy = min(grid_size - 1, int(y / cell_h))
+
+        features.extend([gx, gy])
+
+    return features

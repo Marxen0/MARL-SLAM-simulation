@@ -16,7 +16,15 @@ def observation_to_tensor(obs, current_time):
 
     # Other agent dijkstra
     features.extend(obs["other_agent_dijkstra"])
-
+    features.extend(
+        obs["other_estimate_occ"].ravel() ### HOW DO I ADD THIS UPDATE THIS
+    )
+    features.extend(
+        obs["agents_pos"]
+    )
+    features.extend(
+        obs["agents_target_pos"]
+    )
     # Frontiers
     for frontier in obs["frontiers"]:
 
@@ -91,6 +99,7 @@ def test():
         RAYS,
         W,
         H,
+        estimate_grid_size=12,
         render=True
     )
 
@@ -109,7 +118,7 @@ def test():
 
     actor = Actor(input_dim)
 
-    VERSION = "Version 9 Training"
+    VERSION = "Version 11 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -201,7 +210,8 @@ def test():
         obs, action_mask, rewards, done, _ = env.step(
             actions
         )
-
+        print(obs[0]["other_estimate_occ"])
+        print("="*10)
         total_reward += np.sum(rewards)
 
         # ==========================================

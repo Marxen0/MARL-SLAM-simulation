@@ -44,6 +44,18 @@ def encode_observation(obs, time_step):
     features.extend(
         obs["other_agent_dijkstra"]
     )
+    max_value = np.max(obs["other_estimate_occ"])
+    if max_value > 0:
+        obs["other_estimate_occ"] /= max_value
+    features.extend(
+        obs["other_estimate_occ"].ravel() ### HOW DO I ADD THIS UPDATE THIS
+    )
+    features.extend(
+        obs["agents_pos"]
+    )
+    features.extend(
+        obs["agents_target_pos"]
+    )
 
     # Frontiers
     for frontier in obs["frontiers"]:

@@ -630,13 +630,112 @@ def build_frontier_feature(
 
 def build_observation(
     other_agent_dijkstra,
-    frontier_features
+    frontier_features,
+    agents_target_pos = 0,
+    other_estimate_occ=0,
+    agents_pos = 0,
 ):
     return {
         "other_agent_dijkstra": other_agent_dijkstra,
+        "other_estimate_occ" : other_estimate_occ,
         "frontiers": frontier_features,
+        "agents_pos": agents_pos,
+        "agents_target_port" : agents_target_pos
     }
 
+def update_agent_density(
+    agent_idx,
+    prev_targets,
+    curr_targets,
+    density_maps,
+    world_width,
+    world_height,
+    grid_size=3,
+    decay=1,
+):
+    """
+    Update the exploration density estimate for a single agent.
+
+    Parameters
+    ----------
+    agent_idx : int
+        Index of the agent whose target has just changed.
+
+    prev_targets : list[(x, y) or None]
+        Previous target of each agent.
+
+    curr_targets : list[(x, y) or None]
+        Current target of each agent.
+
+    density_maps : ndarray
+        Shape = (num_agents, grid_size, grid_size)
+
+    world_width : int
+
+    world_height : int
+
+    grid_size : int
+
+    decay : float
+        Forgetting factor.
+    """
+
+    # Decay only this agent's density map
+    density_maps[agent_idx] *= decay
+
+    prev = prev_targets[agent_idx]
+    curr = curr_targets[agent_idx]
+
+    if prev is None or curr is None:
+        return density_maps
+
+    x0, y0 = prev
+    x1, y1 = curr
+
+    dist = np.hypot(x1 - x0, y1 - y0)
+
+    # Same target
+    if dist < 1e-6:
+
+        gx = min(
+            grid_size - 1,
+            int(x0 / world_width * grid_size)
+        )
+
+        gy = min(
+            grid_size - 1,
+            int(y0 / world_height * grid_size)
+        )
+
+        density_maps[agent_idx, gy, gx] += 1.0
+
+        return density_maps
+
+    samples = max(int(dist), 1)
+
+    # Optional: emphasize the destination more
+    weights = np.linspace(0.2, 1.0, samples + 1)
+    weights /= weights.sum()
+
+    for i in range(samples + 1):
+
+        t = i / samples
+
+        x = x0 + t * (x1 - x0)
+        y = y0 + t * (y1 - y0)
+
+        gx = min(
+            grid_size - 1,
+            int(x / world_width * grid_size)
+        )
+
+        gy = min(
+            grid_size - 1,
+            int(y / world_height * grid_size)
+        )
+
+        density_maps[agent_idx, gy, gx] += weights[i]
+    return density_maps
 if __name__ == "__main__":
 
     occ = np.zeros((10, 10), dtype=int)
@@ -653,3 +752,5 @@ if __name__ == "__main__":
     obs, _ = observation(0, [agent_pos], occ, [[2,2]], 1)
     print(obs["frontiers"][0]["frontier_value"])
     print(obs["frontiers"][1]["frontier_value"])
+
+

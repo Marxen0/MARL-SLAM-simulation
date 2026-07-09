@@ -105,7 +105,7 @@ def compute_unknown_density_features(global_map, unknown_value=-1, grid_size=3):
 
     return features
 
-def get_global_state(env, grid_size = 3, unknown_value =-1):
+def get_global_state(env, grid_size = 12, unknown_value =-1):
 
     features = []
 
@@ -260,17 +260,17 @@ def get_global_state(env, grid_size = 3, unknown_value =-1):
 def train():
 
     AGENTS = 3
-    RAYS = 16
+    RAYS = 120
 
     W = 50
     H = 50
 
-    EPISODES = 500
+    EPISODES = 5000
 
     GAMMA = 0.99
 
     RENDER = False
-    VERSION = "Version 9 Training"
+    VERSION = "Version 17 Training"
 
     MODEL_FOLDER = os.path.join(
         VERSION,
@@ -290,7 +290,8 @@ def train():
         AGENTS,
         RAYS,
         W,
-        H
+        H,
+        estimate_grid_size=12
     )
 
     # --------------------------------
